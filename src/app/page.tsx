@@ -1,3 +1,4 @@
+import CTA from "@/components/Home/CTA";
 import FAQ from "@/components/Home/FAQ";
 import FeaturedMentors from "@/components/Home/FeaturedMentors";
 import Hero from "@/components/Home/Hero";
@@ -15,7 +16,7 @@ export default function Home() {
     <FeaturedMentors/>
     <HowItWorks/>
     <FAQ/>
-
+   <CTA/>
    </div>
    
   );
