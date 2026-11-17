@@ -1,10 +1,14 @@
+import Hero from "@/components/Home/Hero";
+import PopularCategories from "@/components/Home/PopularCategories";
 import Image from "next/image";
 
 export default function Home() {
   return (
-    <h2>
-      this is mentor lagbe website
-    </h2>
+   <div>
+    <Hero/>
+    <PopularCategories/>
+
+   </div>
    
   );
 }

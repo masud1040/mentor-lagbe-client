@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Bengali } from "next/font/google";
-import { Toaster } from "react-hot-toast";
+import { Inter, Noto_Sans_Bengali, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+import Navbar from "@/components/shared/Nav";
 
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+
+// English Font
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
+// Bangla Font
 const notoBengali = Noto_Sans_Bengali({
   subsets: ["bengali", "latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-bengali",
 });
 
 export const metadata: Metadata = {
@@ -19,10 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="bn">
-      <body className={`${notoBengali.className} antialiased bg-gray-50 text-gray-900`}>
+    <html lang="en" className={cn("font-sans", geist.variable)}>
+      <body className={`${inter.variable} ${notoBengali.variable} font-sans antialiased bg-gray-50 text-gray-900`}>
+        <Navbar/>
+        
         {children}
-        <Toaster position="top-center" reverseOrder={false} />
       </body>
     </html>
   );
