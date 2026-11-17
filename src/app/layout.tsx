@@ -3,6 +3,7 @@ import { Inter, Noto_Sans_Bengali, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import Navbar from "@/components/shared/Nav";
+import Footer from "@/components/shared/Footer";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         <Navbar/>
         
         {children}
+        <Footer/>
       </body>
     </html>
   );
