@@ -1,3 +1,4 @@
+import FeaturedMentors from "@/components/Home/FeaturedMentors";
 import Hero from "@/components/Home/Hero";
 import PopularCategories from "@/components/Home/PopularCategories";
 import WhyChooseUs from "@/components/Home/WhyChooseUs";
@@ -9,6 +10,7 @@ export default function Home() {
     <Hero/>
     <PopularCategories/>
     <WhyChooseUs/>
+    <FeaturedMentors/>
 
    </div>
    
