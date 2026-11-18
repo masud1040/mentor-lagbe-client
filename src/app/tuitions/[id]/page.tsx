@@ -3,8 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 import Navbar from "@/components/shared/Nav";
+import { useSession } from "@/lib/auth-client";
 import { fetchTuitionById } from "@/lib/api/tuition-api";
+import { applyForTuitionApi } from "@/lib/api/application-api";
 import {
   ArrowLeft,
   BookOpen,
@@ -18,8 +21,13 @@ import {
   Clock,
   Loader2,
   AlertCircle,
+  Send,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface TuitionDetail {
   _id: string;
@@ -43,8 +51,16 @@ export default function TuitionDetailsPage() {
   const router = useRouter();
   const id = params?.id as string;
 
+  const { data: session } = useSession();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+
   const [post, setPost] = useState<TuitionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -62,6 +78,47 @@ export default function TuitionDetailsPage() {
     };
     loadDetail();
   }, [id]);
+
+  const handleApply = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!post) return;
+
+    if (!session?.user) {
+      toast.error("Please sign in as a student to apply.");
+      router.push("/sign-in");
+      return;
+    }
+
+    setApplying(true);
+    try {
+      const { ok, data } = await applyForTuitionApi({
+        tuitionId: post._id,
+        phone: phone.trim(),
+        message: message.trim(),
+      });
+
+      if (ok && data.success) {
+        toast.success("Application submitted successfully!");
+        setApplied(true);
+        setPhone("");
+        setMessage("");
+        setPost((prev) =>
+          prev
+            ? { ...prev, applicantsCount: (prev.applicantsCount || 0) + 1 }
+            : prev
+        );
+      } else {
+        toast.error(data.message || "Failed to submit application.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const canApply =
+    post?.status === "active" && post?.adminStatus === "approved";
 
   return (
     <div className="min-h-screen bg-slate-50/70">
@@ -97,7 +154,7 @@ export default function TuitionDetailsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Main Card */}
+            {/* Main Details Card */}
             <div className="rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-xs sm:p-10">
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600">
@@ -197,6 +254,95 @@ export default function TuitionDetailsPage() {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* Apply Section */}
+            <div className="rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-xs sm:p-10">
+              <h2 className="text-xl font-extrabold text-slate-900">
+                Apply for this Tuition
+              </h2>
+
+              {!canApply ? (
+                <p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-700">
+                  This tuition post is currently closed or pending admin approval.
+                </p>
+              ) : !session?.user ? (
+                <div className="mt-4 flex flex-col items-start justify-between gap-4 rounded-2xl bg-slate-50 p-5 sm:flex-row sm:items-center">
+                  <p className="text-sm font-medium text-slate-600">
+                    Sign in with a student account to apply for this tuition.
+                  </p>
+                  <Link href="/sign-in">
+                    <Button className="rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">
+                      Sign In to Apply
+                    </Button>
+                  </Link>
+                </div>
+              ) : userRole !== "student" ? (
+                <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                  Only student accounts can apply for tuition posts.
+                </p>
+              ) : applied ? (
+                <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-5 text-emerald-700">
+                  <CheckCircle2 className="size-6 shrink-0" />
+                  <div>
+                    <p className="font-bold">Application Submitted!</p>
+                    <p className="text-sm">
+                      The mentor will review your request and contact you soon.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleApply} className="mt-5 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="font-semibold text-slate-800">
+                      Contact Number
+                    </Label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        required
+                        placeholder="e.g. 017XXXXXXXX"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-10 focus-visible:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="message" className="font-semibold text-slate-800">
+                      Short Note / Availability
+                    </Label>
+                    <Textarea
+                      id="message"
+                      required
+                      rows={4}
+                      placeholder="Write your class/background, preferred schedule, or any questions..."
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      className="resize-none rounded-xl border-slate-200 bg-slate-50 p-3.5 focus-visible:bg-white"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={applying}
+                    className="h-12 rounded-xl bg-blue-600 px-8 font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700"
+                  >
+                    {applying ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" /> Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 size-4" /> Submit Application
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
             </div>
           </div>
         )}
