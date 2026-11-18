@@ -7,7 +7,8 @@ const client = new MongoClient(
   process.env.MONGODB_URL as string
 );
 
-const db = client.db("BookNook");
+// ডেটাবেসের নাম
+const db = client.db("MentorLagbe");
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
@@ -33,6 +34,22 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+  },
+
+  
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false, 
+        defaultValue: "student", 
+      },
+      isPremium: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+      },
     },
   },
 });

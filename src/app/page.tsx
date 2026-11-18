@@ -5,11 +5,13 @@ import Hero from "@/components/Home/Hero";
 import HowItWorks from "@/components/Home/HowItWorks";
 import PopularCategories from "@/components/Home/PopularCategories";
 import WhyChooseUs from "@/components/Home/WhyChooseUs";
+import Navbar from "@/components/shared/Nav";
 import Image from "next/image";
 
 export default function Home() {
   return (
    <div>
+     <Navbar/>
     <Hero/>
     <PopularCategories/>
     <WhyChooseUs/>
@@ -18,6 +20,7 @@ export default function Home() {
     <FAQ/>
    <CTA/>
    </div>
+
    
   );
 }

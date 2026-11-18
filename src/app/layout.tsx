@@ -34,10 +34,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className={`${inter.variable} ${notoBengali.variable} font-sans antialiased bg-gray-50 text-gray-900`}>
-        <Navbar/>
+       
         
         {children}
         <Footer/>
+        
       </body>
     </html>
   );
