@@ -2,146 +2,206 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-import { toast } from "react-hot-toast";
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Users, 
-  Settings, 
-  LogOut, 
-  ShieldAlert,
+import { signOut } from "@/lib/auth-client";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  LayoutDashboard,
+  FilePlus2,
+  BookOpen,
+  Users,
+  CheckSquare,
   CreditCard,
-  FileText
+  LogOut,
+  Search,
+  Inbox,
+  ChevronRight,
 } from "lucide-react";
 
-interface UserProps {
-  user: {
-    name: string;
-    email: string;
-    role?: string;
-    image?: string | null;
-  };
+type UserRole = "student" | "mentor" | "admin";
+
+interface DashboardUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  role?: string | null;
 }
 
-export default function SideNavbar({ user }: UserProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const role = user.role || "student";
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+}
 
-  // Role onujayi menu items define kora
-  const getMenuItems = () => {
-    if (role === "admin") {
-      return [
-        { name: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
-        { name: "Manage Mentors", href: "/dashboard/admin/mentors", icon: Users },
-        { name: "All Tuitions", href: "/dashboard/admin/tuitions", icon: BookOpen },
-        { name: "Settings", href: "/dashboard/admin/settings", icon: Settings },
-      ];
-    } else if (role === "mentor") {
-      return [
-        { name: "Dashboard", href: "/dashboard/mentor", icon: LayoutDashboard },
-        { name: "My Tuition Posts", href: "/dashboard/mentor/posts", icon: FileText },
-        { name: "Student Requests", href: "/dashboard/mentor/requests", icon: Users },
-        { name: "Subscription", href: "/dashboard/mentor/pricing", icon: CreditCard },
-      ];
-    } else {
-      // Default: Student
-      return [
-        { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard },
-        { name: "Find Mentors", href: "/dashboard/student/mentors", icon: Users },
-        { name: "My Bookings", href: "/dashboard/student/bookings", icon: BookOpen },
-        { name: "Billing", href: "/dashboard/student/billing", icon: CreditCard },
-      ];
-    }
+const NAV_ITEMS: Record<UserRole, NavItem[]> = {
+  mentor: [
+    { label: "Overview", href: "/dashboard/mentor", icon: LayoutDashboard },
+    { label: "My Tuition Posts", href: "/dashboard/mentor/posts", icon: BookOpen },
+    { label: "Create Post", href: "/dashboard/mentor/posts/create", icon: FilePlus2 },
+    { label: "Applications", href: "/dashboard/mentor/applications", icon: Inbox },
+    { label: "Pricing & Plan", href: "/dashboard/mentor/pricing", icon: CreditCard },
+  ],
+  student: [
+    { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
+    { label: "Browse Tuitions", href: "/tuitions", icon: Search },
+    { label: "My Applications", href: "/dashboard/student/applications", icon: CheckSquare },
+  ],
+  admin: [
+    { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+    { label: "Manage Tuitions", href: "/dashboard/admin/tuitions", icon: BookOpen },
+    { label: "Manage Users", href: "/dashboard/admin/users", icon: Users },
+  ],
+};
+
+export default function SideNavbar({ user }: { user: DashboardUser }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { setOpenMobile } = useSidebar();
+
+  const role: UserRole =
+    user?.role === "mentor" || user?.role === "admin" || user?.role === "student"
+      ? user.role
+      : "student";
+
+  const menuItems = NAV_ITEMS[role];
+
+  const handleLinkClick = () => {
+    setOpenMobile(false);
   };
 
-  const menuItems = getMenuItems();
-
-  // Logout handler
   const handleLogout = async () => {
-    try {
-      await authClient.signOut({
-        fetchOptions: {
-          onSuccess: () => {
-            toast.success("Logged out successfully!");
-            router.push("/sign-in");
-            router.refresh();
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Logout Error:", error);
-      toast.error("Failed to log out.");
+    setOpenMobile(false);
+    await signOut();
+    router.push("/sign-in");
+    router.refresh();
+  };
+
+  const isRouteActive = (href: string) => {
+    if (href === `/dashboard/${role}`) {
+      return pathname === href;
     }
+    if (href === "/dashboard/mentor/posts") {
+      return (
+        pathname === href ||
+        (pathname.startsWith("/dashboard/mentor/posts/") &&
+          !pathname.startsWith("/dashboard/mentor/posts/create"))
+      );
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
-    <aside className="flex h-screen w-72 flex-col justify-between border-r border-slate-200 bg-white p-6 sticky top-0 shadow-sm">
-      
-      {/* Top Section: Logo & User Info */}
-      <div>
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 mb-8 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-extrabold shadow-md shadow-blue-600/20 transition-transform group-hover:scale-105">
-            M
+    <Sidebar className="border-r border-slate-200/80 bg-white">
+      {/* Premium Logo Header */}
+      <SidebarHeader className="border-b border-slate-100 px-5 py-5">
+        <Link
+          href="/"
+          onClick={handleLinkClick}
+          className="group flex items-center gap-3"
+        >
+          <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm transition-transform group-hover:scale-105">
+            <Image
+              src="/logo.png"
+              alt="MentorLagbe Logo"
+              fill
+              className="object-contain p-1"
+              priority
+            />
           </div>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">
-            Mentor<span className="text-blue-600">Lagbe</span>
-          </span>
-        </Link>
-
-        {/* User Profile Card Box */}
-        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 font-bold text-lg uppercase">
-            {user.name ? user.name[0] : "U"}
-          </div>
-          <div className="overflow-hidden">
-            <h4 className="truncate text-[15px] font-bold text-slate-900">
-              {user.name || "User"}
-            </h4>
-            <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-600 capitalize tracking-wider mt-0.5">
-              {role}
+          <div className="flex flex-col">
+            <span className="text-[19px] font-extrabold leading-none tracking-tight text-slate-900">
+              Mentor<span className="text-blue-600">Lagbe</span>
             </span>
+            <span className="mt-1 inline-flex w-fit items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600">
+              {role} workspace
+            </span>
+          </div>
+        </Link>
+      </SidebarHeader>
+
+      {/* Navigation Links */}
+      <SidebarContent className="px-3.5 py-5">
+        <SidebarGroup className="p-0">
+          <SidebarGroupLabel className="mb-2 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            Navigation
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1.5">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                const active = isRouteActive(item.href);
+
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={handleLinkClick}
+                      className={`group relative flex h-11 items-center justify-between rounded-xl px-3.5 text-[14px] font-semibold transition-all duration-200 ${
+                        active
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                          : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          className={`size-[18px] shrink-0 transition-colors ${
+                            active
+                              ? "text-white"
+                              : "text-slate-400 group-hover:text-blue-600"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+                      {active && (
+                        <ChevronRight className="size-4 text-white/80" />
+                      )}
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* Premium User Profile & Logout Footer */}
+      <SidebarFooter className="border-t border-slate-100 bg-slate-50/50 p-4">
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white p-2.5 shadow-xs">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-sm">
+            {user?.name?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13.5px] font-bold text-slate-900">
+              {user?.name || "User"}
+            </p>
+            <p className="truncate text-[11.5px] font-medium text-slate-500">
+              {user?.email || ""}
+            </p>
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="space-y-1.5">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold transition-all ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <Icon size={18} className={isActive ? "text-white" : "text-slate-400"} />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Bottom Section: Logout Button */}
-      <div className="border-t border-slate-100 pt-4">
         <button
+          type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-rose-50/70 px-4 py-2.5 text-[13.5px] font-bold text-rose-600 transition-all hover:bg-rose-600 hover:text-white active:scale-[0.98]"
         >
-          <LogOut size={18} />
-          Log Out
+          <LogOut className="size-4" />
+          <span>Sign Out</span>
         </button>
-      </div>
-
-    </aside>
+      </SidebarFooter>
+    </Sidebar>
   );
 }
