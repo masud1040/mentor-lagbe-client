@@ -21,7 +21,7 @@ const navLinks = [
   { name: "Home / হোম", href: "/" },
   { name: "Browse Tuitions / খুঁজুন", href: "/tuitions" },
   { name: "Pricing / প্ল্যান", href: "/pricing" },
-  { name: "Post Tuition", href: "/dashboard/tutor/post-tuition", private: true },
+{ name: "Mentors", href: "/mentors", private: false },
   { name: "Dashboard", href: "/dashboard", private: true },
 ];
 
