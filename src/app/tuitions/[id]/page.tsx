@@ -7,14 +7,15 @@ import { toast } from "react-hot-toast";
 import Navbar from "@/components/shared/Nav";
 import { useSession } from "@/lib/auth-client";
 import { fetchTuitionById } from "@/lib/api/tuition-api";
-import { applyForTuitionApi } from "@/lib/api/application-api";
+import {
+  applyForTuitionApi,
+  fetchApplicationsApi,
+} from "@/lib/api/application-api";
 import {
   ArrowLeft,
   BookOpen,
   MapPin,
-  DollarSign,
   Users,
-  User,
   Calendar,
   Wifi,
   CheckCircle2,
@@ -23,6 +24,9 @@ import {
   AlertCircle,
   Send,
   Phone,
+  ShieldCheck,
+  ArrowUpRight,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,22 +50,48 @@ interface TuitionDetail {
   createdAt: string;
 }
 
+interface ExistingApplication {
+  _id?: string;
+  tuitionId: string;
+  status: "pending" | "accepted" | "rejected";
+  appliedAt: string;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  primary: "Primary",
+  jsc: "JSC",
+  ssc: "SSC",
+  hsc: "HSC",
+  admission: "Admission",
+};
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  monthly: "month",
+  "per-class": "class",
+  course: "course",
+};
+
 export default function TuitionDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
 
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionLoading } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
 
   const [post, setPost] = useState<TuitionDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [existingApp, setExistingApp] = useState<ExistingApplication | null>(
+    null
+  );
+  const [checkingApp, setCheckingApp] = useState(false);
+
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
 
+  // 1. Fetch tuition details
   useEffect(() => {
     if (!id) return;
     const loadDetail = async () => {
@@ -78,6 +108,40 @@ export default function TuitionDetailsPage() {
     };
     loadDetail();
   }, [id]);
+
+  // 2. Check if logged-in student already applied to this tuition
+  useEffect(() => {
+    if (sessionLoading || !session?.user?.id || userRole !== "student" || !id) {
+      return;
+    }
+
+    const checkExistingApplication = async () => {
+      setCheckingApp(true);
+      try {
+        const apps = await fetchApplicationsApi({
+          applicantId: session.user.id,
+        });
+        if (Array.isArray(apps)) {
+          const matching = apps.filter(
+            (a: ExistingApplication) => a.tuitionId === id
+          );
+          if (matching.length > 0) {
+            // Active (pending/accepted) thakle seta priority pabe
+            const active = matching.find(
+              (a: ExistingApplication) => a.status !== "rejected"
+            );
+            setExistingApp(active || matching[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check application status:", error);
+      } finally {
+        setCheckingApp(false);
+      }
+    };
+
+    checkExistingApplication();
+  }, [id, session?.user?.id, sessionLoading, userRole]);
 
   const handleApply = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -99,7 +163,11 @@ export default function TuitionDetailsPage() {
 
       if (ok && data.success) {
         toast.success("Application submitted successfully!");
-        setApplied(true);
+        setExistingApp({
+          tuitionId: post._id,
+          status: "pending",
+          appliedAt: new Date().toISOString(),
+        });
         setPhone("");
         setMessage("");
         setPost((prev) =>
@@ -120,230 +188,311 @@ export default function TuitionDetailsPage() {
   const canApply =
     post?.status === "active" && post?.adminStatus === "approved";
 
+  const hasActiveApplication =
+    existingApp !== null && existingApp.status !== "rejected";
+
+  const categoryLabel =
+    CATEGORY_LABELS[post?.category?.toLowerCase() || ""] ||
+    post?.category ||
+    "General";
+  const freqLabel =
+    FREQUENCY_LABELS[post?.frequency || "monthly"] ||
+    post?.frequency ||
+    "month";
+
   return (
-    <div className="min-h-screen bg-slate-50/70">
+    <div className="min-h-screen bg-[#F8FAFC]">
       <Navbar />
 
-      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* Back Button */}
         <button
           type="button"
           onClick={() => router.back()}
-          className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-slate-600 transition-colors hover:text-blue-600"
+          className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900"
         >
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft className="size-4" /> Back to listings
         </button>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-[2rem] border border-slate-100 bg-white py-24">
-            <Loader2 className="size-8 animate-spin text-blue-600" />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="h-96 animate-pulse rounded-2xl border border-slate-200/80 bg-white p-6 lg:col-span-8" />
+            <div className="h-72 animate-pulse rounded-2xl border border-slate-200/80 bg-white p-6 lg:col-span-4" />
           </div>
         ) : !post ? (
-          <div className="flex flex-col items-center justify-center rounded-[2rem] border border-slate-100 bg-white py-24 text-center shadow-xs">
-            <AlertCircle className="mb-3 size-12 text-slate-300" />
-            <h2 className="text-xl font-bold text-slate-900">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white px-6 py-20 text-center">
+            <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <AlertCircle className="size-6" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900">
               Tuition post not found
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              This post may have been removed or the link is invalid.
+            <p className="mt-1 max-w-sm text-sm text-slate-500">
+              This post may have been removed or the link is no longer valid.
             </p>
             <Link href="/tuitions" className="mt-5">
-              <Button className="rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">
+              <Button className="rounded-xl bg-slate-900 px-5 font-semibold text-white hover:bg-blue-600">
                 Browse All Tuitions
               </Button>
             </Link>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Main Details Card */}
-            <div className="rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-xs sm:p-10">
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600">
-                  {post.category}
-                </span>
-                {post.isOnline && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-600">
-                    <Wifi size={13} /> Online
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+            {/* LEFT COLUMN: Tuition Details */}
+            <div className="space-y-5 lg:col-span-8">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7">
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    {categoryLabel}
                   </span>
-                )}
-                {post.adminStatus === "approved" ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-600">
-                    <CheckCircle2 size={13} /> Verified
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-600">
-                    <Clock size={13} /> {post.adminStatus}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                {post.title}
-              </h1>
-
-              {/* Meta Grid */}
-              <div className="mt-6 grid gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Salary / Budget
-                  </p>
-                  <p className="mt-1 flex items-center gap-1 text-lg font-extrabold text-slate-900">
-                    <DollarSign size={16} className="text-blue-600" /> ৳
-                    {post.budget}
-                    <span className="text-xs font-medium text-slate-500">
-                      /{post.frequency || "monthly"}
+                  {post.isOnline ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <Wifi className="size-3.5" /> Online
                     </span>
-                  </p>
+                  ) : (
+                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                      Home Tuition
+                    </span>
+                  )}
+                  {post.adminStatus === "approved" ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <ShieldCheck className="size-3.5" /> Verified
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold capitalize text-amber-700">
+                      <Clock className="size-3.5" /> {post.adminStatus}
+                    </span>
+                  )}
                 </div>
 
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Subject
-                  </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <BookOpen size={15} className="text-slate-400" />
-                    {post.subject}
-                  </p>
-                </div>
+                {/* Title */}
+                <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+                  {post.title}
+                </h1>
 
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Location
-                  </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <MapPin size={15} className="text-slate-400" />
-                    {post.location}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Applicants
-                  </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <Users size={15} className="text-slate-400" />
-                    {post.applicantsCount || 0} Applied
-                  </p>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mt-8">
-                <h2 className="text-lg font-bold text-slate-900">
-                  Tuition Description & Requirements
-                </h2>
-                <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">
-                  {post.description}
-                </p>
-              </div>
-
-              {/* Footer Info */}
-              <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6 text-sm font-semibold text-slate-500">
-                <div className="flex items-center gap-2">
-                  <User size={16} className="text-slate-400" />
-                  Posted by{" "}
-                  <span className="font-bold text-slate-900">
-                    {post.authorName || "Mentor"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-slate-400" />
-                  {new Date(post.createdAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Apply Section */}
-            <div className="rounded-[2rem] border border-slate-200/70 bg-white p-6 shadow-xs sm:p-10">
-              <h2 className="text-xl font-extrabold text-slate-900">
-                Apply for this Tuition
-              </h2>
-
-              {!canApply ? (
-                <p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-700">
-                  This tuition post is currently closed or pending admin approval.
-                </p>
-              ) : !session?.user ? (
-                <div className="mt-4 flex flex-col items-start justify-between gap-4 rounded-2xl bg-slate-50 p-5 sm:flex-row sm:items-center">
-                  <p className="text-sm font-medium text-slate-600">
-                    Sign in with a student account to apply for this tuition.
-                  </p>
-                  <Link href="/sign-in">
-                    <Button className="rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">
-                      Sign In to Apply
-                    </Button>
-                  </Link>
-                </div>
-              ) : userRole !== "student" ? (
-                <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
-                  Only student accounts can apply for tuition posts.
-                </p>
-              ) : applied ? (
-                <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-5 text-emerald-700">
-                  <CheckCircle2 className="size-6 shrink-0" />
+                {/* Compact Key Facts Strip */}
+                <div className="mt-6 grid grid-cols-2 gap-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4 sm:grid-cols-4">
                   <div>
-                    <p className="font-bold">Application Submitted!</p>
-                    <p className="text-sm">
-                      The mentor will review your request and contact you soon.
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Salary
+                    </p>
+                    <p className="mt-1 text-base font-extrabold text-slate-900 tabular-nums">
+                      ৳{Number(post.budget || 0).toLocaleString()}
+                      <span className="text-xs font-medium text-slate-500">
+                        /{freqLabel}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Subject
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <BookOpen className="size-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate">{post.subject}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Location
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <MapPin className="size-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate">{post.location}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Applicants
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <Users className="size-3.5 shrink-0 text-slate-400" />
+                      <span>{post.applicantsCount || 0} Applied</span>
                     </p>
                   </div>
                 </div>
-              ) : (
-                <form onSubmit={handleApply} className="mt-5 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone" className="font-semibold text-slate-800">
-                      Contact Number
-                    </Label>
-                    <div className="relative">
-                      <Phone className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        id="phone"
-                        type="tel"
-                        required
-                        placeholder="e.g. 017XXXXXXXX"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="h-12 rounded-xl border-slate-200 bg-slate-50 pl-10 focus-visible:bg-white"
-                      />
+
+                {/* Description */}
+                <div className="mt-6 border-t border-slate-100 pt-6">
+                  <h2 className="text-base font-bold text-slate-900">
+                    Description &amp; Requirements
+                  </h2>
+                  <p className="mt-2.5 whitespace-pre-line text-sm leading-relaxed text-slate-600 sm:text-[15px]">
+                    {post.description}
+                  </p>
+                </div>
+
+                {/* Mentor Info Footer */}
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                      {(post.authorName || "M").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        {post.authorName || "Verified Mentor"}
+                      </p>
+                      <p className="text-xs text-slate-500">Tuition Mentor</p>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="message" className="font-semibold text-slate-800">
-                      Short Note / Availability
-                    </Label>
-                    <Textarea
-                      id="message"
-                      required
-                      rows={4}
-                      placeholder="Write your class/background, preferred schedule, or any questions..."
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      className="resize-none rounded-xl border-slate-200 bg-slate-50 p-3.5 focus-visible:bg-white"
-                    />
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                    <Calendar className="size-3.5 text-slate-400" />
+                    Posted{" "}
+                    {new Date(post.createdAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={applying}
-                    className="h-12 rounded-xl bg-blue-600 px-8 font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700"
-                  >
-                    {applying ? (
-                      <>
-                        <Loader2 className="mr-2 size-4 animate-spin" /> Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 size-4" /> Submit Application
-                      </>
-                    )}
-                  </Button>
-                </form>
-              )}
+                </div>
+              </div>
             </div>
+
+            {/* RIGHT COLUMN: Sticky Apply / Status Panel */}
+            <aside className="lg:sticky lg:top-24 lg:col-span-4">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6">
+                <h2 className="text-base font-bold text-slate-900">
+                  {hasActiveApplication
+                    ? "Application Status"
+                    : "Apply for this Tuition"}
+                </h2>
+
+                {!canApply ? (
+                  <div className="mt-4 rounded-xl border border-amber-200/70 bg-amber-50/70 p-4 text-sm font-medium text-amber-800">
+                    This tuition post is currently closed or awaiting admin approval.
+                  </div>
+                ) : sessionLoading || checkingApp ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="size-5 animate-spin text-blue-600" />
+                  </div>
+                ) : !session?.user ? (
+                  <div className="mt-4 space-y-4">
+                    <p className="text-sm leading-relaxed text-slate-500">
+                      Sign in with your student account to apply and connect directly with the mentor.
+                    </p>
+                    <Link href="/sign-in" className="block">
+                      <Button className="h-11 w-full rounded-xl bg-slate-900 font-semibold text-white hover:bg-blue-600">
+                        Sign In to Apply
+                      </Button>
+                    </Link>
+                  </div>
+                ) : userRole !== "student" ? (
+                  <div className="mt-4 rounded-xl border border-slate-200/70 bg-slate-50 p-4 text-sm font-medium text-slate-600">
+                    Only student accounts can submit applications for tuition posts.
+                  </div>
+                ) : hasActiveApplication ? (
+                  /* Button & Form completely hidden once applied */
+                  <div className="mt-4 space-y-4">
+                    <div
+                      className={`rounded-xl border p-4 ${
+                        existingApp.status === "accepted"
+                          ? "border-emerald-200 bg-emerald-50/70 text-emerald-800"
+                          : "border-blue-200 bg-blue-50/70 text-blue-800"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-bold">
+                        {existingApp.status === "accepted" ? (
+                          <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                        ) : (
+                          <Clock className="size-5 shrink-0 text-blue-600" />
+                        )}
+                        <span>
+                          {existingApp.status === "accepted"
+                            ? "Application Approved"
+                            : "Already Applied"}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed opacity-90">
+                        {existingApp.status === "accepted"
+                          ? "Congratulations! The mentor has accepted your application."
+                          : "Your application is currently pending review by the mentor."}
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/dashboard/student/applications"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      View My Applications
+                      <ArrowUpRight className="size-4" />
+                    </Link>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApply} className="mt-4 space-y-4">
+                    {existingApp?.status === "rejected" && (
+                      <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs font-medium text-amber-800">
+                        <RotateCcw className="mt-0.5 size-3.5 shrink-0" />
+                        <span>
+                          Your previous application was rejected. You can submit a new application below.
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="phone"
+                        className="text-xs font-semibold text-slate-700"
+                      >
+                        Contact Number
+                      </Label>
+                      <div className="relative">
+                        <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          required
+                          placeholder="017XXXXXXXX"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="h-10 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-sm focus-visible:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="message"
+                        className="text-xs font-semibold text-slate-700"
+                      >
+                        Short Note
+                      </Label>
+                      <Textarea
+                        id="message"
+                        required
+                        rows={4}
+                        placeholder="Mention your class, preferred time, or any questions..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        className="resize-none rounded-xl border-slate-200 bg-slate-50/70 p-3 text-sm focus-visible:bg-white"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={applying}
+                      className="h-11 w-full rounded-xl bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700"
+                    >
+                      {applying ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 size-4" />
+                          Submit Application
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            </aside>
           </div>
         )}
       </main>

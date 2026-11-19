@@ -28,6 +28,7 @@ import {
   Search,
   Inbox,
   ChevronRight,
+  UserCircle,
 } from "lucide-react";
 
 type UserRole = "student" | "mentor" | "admin";
@@ -53,16 +54,19 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Create Post", href: "/dashboard/mentor/posts/create", icon: FilePlus2 },
     { label: "Applications", href: "/dashboard/mentor/applications", icon: Inbox },
     { label: "Pricing & Plan", href: "/dashboard/mentor/pricing", icon: CreditCard },
+    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
   ],
   student: [
     { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
     { label: "Browse Tuitions", href: "/tuitions", icon: Search },
     { label: "My Applications", href: "/dashboard/student/applications", icon: CheckSquare },
+    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
   ],
   admin: [
     { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
     { label: "Manage Tuitions", href: "/dashboard/admin/tuitions", icon: BookOpen },
     { label: "Manage Users", href: "/dashboard/admin/users", icon: Users },
+    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
   ],
 };
 
@@ -105,7 +109,7 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
 
   return (
     <Sidebar className="border-r border-slate-200/80 bg-white">
-      {/* Premium Logo Header */}
+      {/* Logo Header */}
       <SidebarHeader className="border-b border-slate-100 px-5 py-5">
         <Link
           href="/"
@@ -177,9 +181,13 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Premium User Profile & Logout Footer */}
+      {/* User Profile & Logout Footer */}
       <SidebarFooter className="border-t border-slate-100 bg-slate-50/50 p-4">
-        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white p-2.5 shadow-xs">
+        <Link
+          href="/dashboard/profile"
+          onClick={handleLinkClick}
+          className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white p-2.5 shadow-xs transition-colors hover:border-blue-200"
+        >
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-sm">
             {user?.name?.charAt(0)?.toUpperCase() || "U"}
           </div>
@@ -191,7 +199,7 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
               {user?.email || ""}
             </p>
           </div>
-        </div>
+        </Link>
 
         <button
           type="button"

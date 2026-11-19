@@ -21,6 +21,9 @@ import {
   Loader2,
   AlertCircle,
   ExternalLink,
+  BookOpen,
+  School,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +33,9 @@ interface ApplicationItem {
   tuitionTitle?: string;
   studentName?: string;
   studentEmail?: string;
+  studentClass?: string;
+  studentInstitution?: string;
+  studentLocation?: string;
   phone?: string;
   message?: string;
   status: "pending" | "accepted" | "rejected";
@@ -48,7 +54,10 @@ export default function MentorApplicationsPage() {
     const loadAllApplications = async () => {
       setLoading(true);
       try {
-        const myPosts = await fetchTuitions({ mentorId: session.user.id });
+        const myPosts = await fetchTuitions({
+          mentorId: session.user.id,
+          mentorEmail: session.user.email || undefined,
+        });
         if (!Array.isArray(myPosts) || myPosts.length === 0) {
           setApplications([]);
           return;
@@ -77,7 +86,7 @@ export default function MentorApplicationsPage() {
     };
 
     loadAllApplications();
-  }, [session?.user?.id, isPending]);
+  }, [session?.user?.id, session?.user?.email, isPending]);
 
   const handleStatusUpdate = async (
     id: string,
@@ -116,7 +125,7 @@ export default function MentorApplicationsPage() {
           Student Applications
         </h1>
         <p className="mt-1 text-[15px] font-medium text-slate-500">
-          Review students who applied to your tuition posts and accept or reject their requests.
+          Review student profiles, academic details, and accept or reject their requests.
         </p>
       </div>
 
@@ -195,6 +204,29 @@ export default function MentorApplicationsPage() {
                     })}
                   </span>
                 </div>
+
+                {/* Student Academic Info from Profile */}
+                {(app.studentClass ||
+                  app.studentInstitution ||
+                  app.studentLocation) && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    {app.studentClass && (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-blue-700">
+                        <BookOpen size={13} /> Class: {app.studentClass}
+                      </span>
+                    )}
+                    {app.studentInstitution && (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700">
+                        <School size={13} /> {app.studentInstitution}
+                      </span>
+                    )}
+                    {app.studentLocation && (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-slate-600">
+                        <MapPin size={13} /> {app.studentLocation}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {app.message && (
                   <p className="rounded-xl bg-slate-50 p-3.5 text-sm text-slate-600">
