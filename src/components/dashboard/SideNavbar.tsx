@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -27,8 +27,11 @@ import {
   LogOut,
   Search,
   Inbox,
-  ChevronRight,
   UserCircle,
+  GraduationCap,
+  Receipt,
+  X,
+  Sparkles,
 } from "lucide-react";
 
 type UserRole = "student" | "mentor" | "admin";
@@ -39,6 +42,7 @@ interface DashboardUser {
   email?: string | null;
   image?: string | null;
   role?: string | null;
+  isPremium?: boolean | null;
 }
 
 interface NavItem {
@@ -47,26 +51,68 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const NAV_ITEMS: Record<UserRole, NavItem[]> = {
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: Record<UserRole, NavSection[]> = {
   mentor: [
-    { label: "Overview", href: "/dashboard/mentor", icon: LayoutDashboard },
-    { label: "My Tuition Posts", href: "/dashboard/mentor/posts", icon: BookOpen },
-    { label: "Create Post", href: "/dashboard/mentor/posts/create", icon: FilePlus2 },
-    { label: "Applications", href: "/dashboard/mentor/applications", icon: Inbox },
-    { label: "Pricing & Plan", href: "/dashboard/mentor/pricing", icon: CreditCard },
-    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+    {
+      title: "Workspace",
+      items: [
+        { label: "Overview", href: "/dashboard/mentor", icon: LayoutDashboard },
+        { label: "My Tuition Posts", href: "/dashboard/mentor/posts", icon: BookOpen },
+        { label: "Create Post", href: "/dashboard/mentor/posts/create", icon: FilePlus2 },
+        { label: "Applications", href: "/dashboard/mentor/applications", icon: Inbox },
+      ],
+    },
+    {
+      title: "Billing & Account",
+      items: [
+        { label: "Pricing & Plan", href: "/dashboard/mentor/pricing", icon: CreditCard },
+        { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+      ],
+    },
   ],
   student: [
-    { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
-    { label: "Browse Tuitions", href: "/tuitions", icon: Search },
-    { label: "My Applications", href: "/dashboard/student/applications", icon: CheckSquare },
-    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+    {
+      title: "Workspace",
+      items: [
+        { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
+        { label: "My Applications", href: "/dashboard/student/applications", icon: CheckSquare },
+      ],
+    },
+    {
+      title: "Discover",
+      items: [
+        { label: "Browse Tuitions", href: "/tuitions", icon: Search },
+        { label: "Find Mentors", href: "/mentors", icon: GraduationCap },
+      ],
+    },
+    {
+      title: "Account",
+      items: [
+        { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+      ],
+    },
   ],
   admin: [
-    { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
-    { label: "Manage Tuitions", href: "/dashboard/admin/tuitions", icon: BookOpen },
-    { label: "Manage Users", href: "/dashboard/admin/users", icon: Users },
-    { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+    {
+      title: "Management",
+      items: [
+        { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+        { label: "Manage Tuitions", href: "/dashboard/admin/tuitions", icon: BookOpen },
+        { label: "Manage Users", href: "/dashboard/admin/users", icon: Users },
+        { label: "Payments & Revenue", href: "/dashboard/admin/payments", icon: Receipt },
+      ],
+    },
+    {
+      title: "Account",
+      items: [
+        { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
+      ],
+    },
   ],
 };
 
@@ -74,15 +120,16 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
+  const [imgFailed, setImgFailed] = useState(false);
 
   const role: UserRole =
     user?.role === "mentor" || user?.role === "admin" || user?.role === "student"
       ? user.role
       : "student";
 
-  const menuItems = NAV_ITEMS[role];
+  const sections = NAV_SECTIONS[role];
 
-  const handleLinkClick = () => {
+  const handleCloseMobile = () => {
     setOpenMobile(false);
   };
 
@@ -107,108 +154,141 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
+  const userInitial = user?.name?.charAt(0)?.toUpperCase() || "U";
+
   return (
     <Sidebar className="border-r border-slate-200/80 bg-white">
-      {/* Logo Header */}
-      <SidebarHeader className="border-b border-slate-100 px-5 py-5">
-        <Link
-          href="/"
-          onClick={handleLinkClick}
-          className="group flex items-center gap-3"
-        >
-          <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm transition-transform group-hover:scale-105">
-            <Image
-              src="/logo.png"
-              alt="MentorLagbe Logo"
-              fill
-              className="object-contain p-1"
-              priority
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[19px] font-extrabold leading-none tracking-tight text-slate-900">
-              Mentor<span className="text-blue-600">Lagbe</span>
-            </span>
-            <span className="mt-1 inline-flex w-fit items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600">
-              {role} workspace
-            </span>
-          </div>
-        </Link>
+      {/* Header: Brand + Mobile Close Button */}
+      <SidebarHeader className="border-b border-slate-100 px-4 py-4">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            onClick={handleCloseMobile}
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/80 bg-white">
+              <Image
+                src="/logo.png"
+                alt="MentorLagbe Logo"
+                fill
+                className="object-contain p-1"
+                priority
+              />
+            </div>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-[17px] font-extrabold leading-tight tracking-tight text-slate-900">
+                Mentor<span className="text-blue-600">Lagbe</span>
+              </span>
+              <span className="text-[11px] font-medium capitalize text-slate-400">
+                {role} workspace
+              </span>
+            </div>
+          </Link>
+
+          {/* Mobile Drawer Close (X) Button */}
+          <button
+            type="button"
+            onClick={handleCloseMobile}
+            aria-label="Close sidebar"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 md:hidden"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </SidebarHeader>
 
-      {/* Navigation Links */}
-      <SidebarContent className="px-3.5 py-5">
-        <SidebarGroup className="p-0">
-          <SidebarGroupLabel className="mb-2 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1.5">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const active = isRouteActive(item.href);
+      {/* Grouped Navigation */}
+      <SidebarContent className="px-3 py-4">
+        <div className="space-y-5">
+          {sections.map((section) => (
+            <SidebarGroup key={section.title} className="p-0">
+              <SidebarGroupLabel className="mb-1.5 h-auto px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                {section.title}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isRouteActive(item.href);
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      className={`group relative flex h-11 items-center justify-between rounded-xl px-3.5 text-[14px] font-semibold transition-all duration-200 ${
-                        active
-                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                          : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon
-                          className={`size-[18px] shrink-0 transition-colors ${
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={handleCloseMobile}
+                          className={`group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] transition-colors ${
                             active
-                              ? "text-white"
-                              : "text-slate-400 group-hover:text-blue-600"
+                              ? "bg-slate-100 font-semibold text-slate-900"
+                              : "font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                           }`}
-                        />
-                        <span>{item.label}</span>
-                      </div>
-                      {active && (
-                        <ChevronRight className="size-4 text-white/80" />
-                      )}
-                    </Link>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                        >
+                          <Icon
+                            className={`size-4 shrink-0 transition-colors ${
+                              active
+                                ? "text-blue-600"
+                                : "text-slate-400 group-hover:text-slate-600"
+                            }`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </div>
       </SidebarContent>
 
-      {/* User Profile & Logout Footer */}
-      <SidebarFooter className="border-t border-slate-100 bg-slate-50/50 p-4">
-        <Link
-          href="/dashboard/profile"
-          onClick={handleLinkClick}
-          className="mb-3 flex items-center gap-3 rounded-2xl border border-slate-200/60 bg-white p-2.5 shadow-xs transition-colors hover:border-blue-200"
-        >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-sm">
-            {user?.name?.charAt(0)?.toUpperCase() || "U"}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13.5px] font-bold text-slate-900">
-              {user?.name || "User"}
-            </p>
-            <p className="truncate text-[11.5px] font-medium text-slate-500">
-              {user?.email || ""}
-            </p>
-          </div>
-        </Link>
+      {/* Footer: Compact User Info + Subtle Sign Out */}
+      <SidebarFooter className="border-t border-slate-100 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/70 bg-slate-50/70 p-2">
+          <Link
+            href="/dashboard/profile"
+            onClick={handleCloseMobile}
+            className="flex min-w-0 flex-1 items-center gap-2.5"
+          >
+            {user?.image && !imgFailed ? (
+              <img
+                src={user.image}
+                alt={user?.name || "User"}
+                onError={() => setImgFailed(true)}
+                className="size-8 shrink-0 rounded-lg border border-slate-200/80 object-cover"
+              />
+            ) : (
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+                {userInitial}
+              </div>
+            )}
 
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200/70 bg-rose-50/70 px-4 py-2.5 text-[13.5px] font-bold text-rose-600 transition-all hover:bg-rose-600 hover:text-white active:scale-[0.98]"
-        >
-          <LogOut className="size-4" />
-          <span>Sign Out</span>
-        </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-[13px] font-semibold text-slate-900">
+                  {user?.name || "User"}
+                </p>
+                {user?.isPremium && role === "mentor" && (
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
+                    <Sparkles className="size-2.5" /> Pro
+                  </span>
+                )}
+              </div>
+              <p className="truncate text-[11px] text-slate-500">
+                {user?.email || ""}
+              </p>
+            </div>
+          </Link>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
