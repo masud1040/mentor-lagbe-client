@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
 import { fetchMyProfileApi } from "@/lib/api/user-api";
 import { fetchTuitions } from "@/lib/api/tuition-api";
+import MentorBillingHistory from "@/components/dashboard/MentorBillingHistory";
 import {
   createCheckoutSessionApi,
   verifyPaymentSessionApi,
@@ -222,6 +223,7 @@ function MentorPricingContent() {
           </div>
         </>
       )}
+      <MentorBillingHistory />
     </div>
   );
 }

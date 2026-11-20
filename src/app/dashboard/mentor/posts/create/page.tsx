@@ -29,10 +29,10 @@ import {
   Lock,
   ArrowUpRight,
   Crown,
+  ImageIcon,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
 interface TuitionFormData {
   title: string;
   subject: string;
@@ -42,6 +42,7 @@ interface TuitionFormData {
   budget: string;
   frequency: string;
   description: string;
+  image: string; 
 }
 
 const inputClass =
@@ -65,6 +66,7 @@ export default function CreateTuitionPostPage() {
     budget: "",
     frequency: "monthly",
     description: "",
+    image: ""
   });
 
   useEffect(() => {
@@ -415,6 +417,51 @@ export default function CreateTuitionPostPage() {
               className="resize-none rounded-xl border-slate-200 bg-slate-50/50 p-4 transition-all focus-visible:border-blue-500 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-blue-500/10"
             />
           </div>
+
+{/* 4. Cover Image (Optional - ImgBB Link) */}
+        <section className={cardClass}>
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Cover Image <span className="text-xs font-medium text-slate-400">(Optional)</span>
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Paste a direct ImgBB image link (e.g. https://i.ibb.co/...). Leave blank to use a default cover.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="relative">
+              <ImageIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                id="image"
+                type="url"
+                placeholder="https://i.ibb.co/xxxxxxx/cover.jpg"
+                value={form.image}
+                onChange={(e) => set("image")(e.target.value)}
+                className={`${inputClass} pl-10`}
+              />
+            </div>
+
+            {form.image.trim() && (
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50">
+                <div className="aspect-[16/9] w-full max-w-md overflow-hidden bg-slate-100">
+                  <img
+                    src={form.image.trim()}
+                    alt="Cover preview"
+                    className="size-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+
         </section>
 
         {/* Submit Button */}

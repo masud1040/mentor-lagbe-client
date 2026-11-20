@@ -250,10 +250,12 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
             className="flex min-w-0 flex-1 items-center gap-2.5"
           >
             {user?.image && !imgFailed ? (
-              <img
+              <Image
                 src={user.image}
                 alt={user?.name || "User"}
                 onError={() => setImgFailed(true)}
+                width={100}
+                height={100}
                 className="size-8 shrink-0 rounded-lg border border-slate-200/80 object-cover"
               />
             ) : (
