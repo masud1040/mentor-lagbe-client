@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   fetchMyProfileApi,
   updateMyProfileApi,
   ProfileUpdatePayload,
 } from "@/lib/api/user-api";
+import { uploadImageToImgBB } from "@/lib/api/imgbb";
 import {
   User,
   Mail,
+  Phone,
   MapPin,
   GraduationCap,
   Briefcase,
@@ -24,6 +26,8 @@ import {
   ExternalLink,
   CheckCircle2,
   Sparkles,
+  Camera,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,18 +45,17 @@ interface UserProfile {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   image?: string;
   role: "student" | "mentor" | "admin";
   bio?: string;
   gender?: string;
   location?: string;
-  // Mentor fields
   education?: string;
   currentOccupation?: string;
   cvUrl?: string;
   expertSubjects?: string[];
   isPremium?: boolean;
-  // Student fields
   studentClass?: string;
   institution?: string;
 }
@@ -72,33 +75,39 @@ const PRESET_SUBJECTS = [
   "General Science",
 ];
 
+const inputClass =
+  "h-11 rounded-xl border border-slate-200/90 bg-white px-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10";
+const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-600";
+
 export default function DashboardProfilePage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  // Editable form state
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [image, setImage] = useState("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState("");
   const [location, setLocation] = useState("");
 
-  // Mentor states
   const [education, setEducation] = useState("");
   const [currentOccupation, setCurrentOccupation] = useState("");
   const [cvUrl, setCvUrl] = useState("");
   const [expertSubjects, setExpertSubjects] = useState<string[]>([]);
   const [customSubject, setCustomSubject] = useState("");
 
-  // Student states
   const [studentClass, setStudentClass] = useState("");
   const [institution, setInstitution] = useState("");
 
   const syncFormWithProfile = (data: UserProfile) => {
     setName(data.name || "");
+    setPhone(data.phone || "");
     setImage(data.image || "");
     setBio(data.bio || "");
     setGender(data.gender || "");
@@ -119,8 +128,7 @@ export default function DashboardProfilePage() {
         const data = await fetchMyProfileApi();
         setProfile(data);
         syncFormWithProfile(data);
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
+      } catch {
         toast.error("Failed to load profile.");
       } finally {
         setLoading(false);
@@ -129,6 +137,36 @@ export default function DashboardProfilePage() {
 
     loadProfile();
   }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be under 5MB.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadImageToImgBB(file);
+      setImage(uploadedUrl);
+      setImgError(false);
+      toast.success("Profile photo uploaded!");
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : "Failed to upload photo.";
+      toast.error(msg);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const toggleSubject = (subject: string) => {
     setExpertSubjects((prev) =>
@@ -141,9 +179,7 @@ export default function DashboardProfilePage() {
   const handleAddCustomSubject = () => {
     const trimmed = customSubject.trim();
     if (!trimmed) return;
-    if (
-      expertSubjects.some((s) => s.toLowerCase() === trimmed.toLowerCase())
-    ) {
+    if (expertSubjects.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
       toast.error("Subject already added.");
       return;
     }
@@ -155,9 +191,15 @@ export default function DashboardProfilePage() {
     e.preventDefault();
     if (!profile) return;
 
+    if (uploadingImage) {
+      toast.error("Please wait for the photo upload to finish.");
+      return;
+    }
+
     setSaving(true);
     const payload: ProfileUpdatePayload = {
       name: name.trim(),
+      phone: phone.trim(),
       image: image.trim(),
       bio: bio.trim(),
       gender,
@@ -209,15 +251,13 @@ export default function DashboardProfilePage() {
     );
   }
 
-  const avatarInitial = (profile.name || "U").charAt(0).toUpperCase();
+  const avatarInitial = (name || profile.name || "U").charAt(0).toUpperCase();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      {/* Top Profile Header Card */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7">
+    <div className="mx-auto max-w-4xl space-y-6 pb-8">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            {/* Profile Picture / Avatar */}
             {profile.image && !imgError ? (
               <img
                 src={profile.image}
@@ -239,7 +279,7 @@ export default function DashboardProfilePage() {
                 <span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-blue-600">
                   {profile.role}
                 </span>
-                {profile.role === "mentor" && profile.isPremium && (
+                {profile.isPremium && (
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-700">
                     <Sparkles className="size-3" /> Pro
                   </span>
@@ -252,6 +292,12 @@ export default function DashboardProfilePage() {
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500">
+                {profile.phone && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="size-3.5 text-slate-400" />
+                    {profile.phone}
+                  </span>
+                )}
                 {profile.gender && (
                   <span className="capitalize">Gender: {profile.gender}</span>
                 )}
@@ -277,11 +323,9 @@ export default function DashboardProfilePage() {
         </div>
       </div>
 
-      {/* VIEW MODE */}
       {!isEditing ? (
         <div className="space-y-5">
-          {/* Bio Section */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
             <h2 className="text-base font-bold text-slate-900">About / Bio</h2>
             <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
               {profile.bio ||
@@ -289,9 +333,8 @@ export default function DashboardProfilePage() {
             </p>
           </div>
 
-          {/* MENTOR VIEW DETAILS */}
           {profile.role === "mentor" && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
               <h2 className="text-base font-bold text-slate-900">
                 Academic &amp; Teaching Details
               </h2>
@@ -318,7 +361,6 @@ export default function DashboardProfilePage() {
                 </div>
               </div>
 
-              {/* Expert Subjects */}
               <div className="mt-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Expert Subjects
@@ -342,7 +384,6 @@ export default function DashboardProfilePage() {
                 )}
               </div>
 
-              {/* Optional CV Link */}
               {profile.cvUrl && (
                 <div className="mt-5 border-t border-slate-100 pt-5">
                   <a
@@ -360,9 +401,8 @@ export default function DashboardProfilePage() {
             </div>
           )}
 
-          {/* STUDENT VIEW DETAILS */}
           {profile.role === "student" && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7">
               <h2 className="text-base font-bold text-slate-900">
                 Academic Information
               </h2>
@@ -392,13 +432,17 @@ export default function DashboardProfilePage() {
           )}
         </div>
       ) : (
-        /* EDIT MODE FORM */
         <form
           onSubmit={handleSave}
-          className="space-y-6 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7"
+          className="space-y-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-7"
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-bold text-slate-900">Edit Profile</h2>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Edit Profile</h2>
+              <p className="text-xs text-slate-500">
+                Update your personal details and profile photo.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -411,33 +455,118 @@ export default function DashboardProfilePage() {
             </button>
           </div>
 
-          {/* Basic Info */}
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative size-16 shrink-0">
+                {image ? (
+                  <img
+                    src={image}
+                    alt={name || "Profile"}
+                    className="size-16 rounded-2xl border border-slate-200 object-cover"
+                  />
+                ) : (
+                  <div className="flex size-16 items-center justify-center rounded-2xl bg-slate-900 text-xl font-extrabold text-white">
+                    {avatarInitial}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingImage}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-9 rounded-xl border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="mr-1.5 size-3.5 text-blue-600" />
+                        {image ? "Change Photo" : "Upload Photo"}
+                      </>
+                    )}
+                  </Button>
+
+                  {image && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setImage("")}
+                      className="h-9 rounded-xl px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    id="image"
+                    type="url"
+                    placeholder="Or paste an image URL (https://i.ibb.co/...)"
+                    value={image}
+                    onChange={(e) => setImage(e.target.value)}
+                    className="h-9 rounded-xl border-slate-200 bg-white pl-8 text-xs text-slate-700 placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="name" className={labelClass}>
                 Full Name
               </Label>
               <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <User className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="name"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-10 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-sm focus-visible:bg-white"
+                  className={`${inputClass} pl-10`}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="gender" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="phone" className={labelClass}>
+                Phone Number
+              </Label>
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="e.g. 017XXXXXXXX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={`${inputClass} pl-10`}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="gender" className={labelClass}>
                 Gender
               </Label>
               <Select value={gender} onValueChange={setGender}>
-                <SelectTrigger
-                  id="gender"
-                  className="h-10 w-full rounded-xl border-slate-200 bg-slate-50/70 text-sm"
-                >
+                <SelectTrigger id="gender" className={`${inputClass} w-full`}>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -449,39 +578,24 @@ export default function DashboardProfilePage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="location" className="text-xs font-semibold text-slate-700">
+              <Label htmlFor="location" className={labelClass}>
                 Location / Area
               </Label>
               <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <MapPin className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="location"
-                  placeholder="e.g. Dhanmondi, Dhaka"
+                  placeholder="e.g. GEC Circle, Chattogram"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="h-10 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-sm focus-visible:bg-white"
+                  className={`${inputClass} pl-10`}
                 />
               </div>
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="image" className="text-xs font-semibold text-slate-700">
-                Profile Picture URL (Optional)
-              </Label>
-              <Input
-                id="image"
-                type="url"
-                placeholder="https://example.com/photo.jpg"
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
-              />
-            </div>
           </div>
 
-          {/* Bio */}
           <div className="space-y-1.5">
-            <Label htmlFor="bio" className="text-xs font-semibold text-slate-700">
+            <Label htmlFor="bio" className={labelClass}>
               Short Bio
             </Label>
             <Textarea
@@ -490,11 +604,10 @@ export default function DashboardProfilePage() {
               placeholder="Write a brief introduction about yourself..."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className="resize-none rounded-xl border-slate-200 bg-slate-50/70 p-3 text-sm focus-visible:bg-white"
+              className="resize-none rounded-xl border border-slate-200/90 bg-white p-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10"
             />
           </div>
 
-          {/* MENTOR EDIT FIELDS */}
           {profile.role === "mentor" && (
             <div className="space-y-5 border-t border-slate-100 pt-5">
               <h3 className="text-sm font-bold text-slate-900">
@@ -503,44 +616,35 @@ export default function DashboardProfilePage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label
-                    htmlFor="education"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Where are you studying / studied?
+                  <Label htmlFor="education" className={labelClass}>
+                    Education / Institution
                   </Label>
                   <Input
                     id="education"
-                    placeholder="e.g. BSc in CSE, BUET"
+                    placeholder="e.g. BSc in CSE, DUET"
                     value={education}
                     onChange={(e) => setEducation(e.target.value)}
-                    className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label
-                    htmlFor="occupation"
-                    className="text-xs font-semibold text-slate-700"
-                  >
-                    Current Occupation / Status
+                  <Label htmlFor="occupation" className={labelClass}>
+                    Current Occupation
                   </Label>
                   <Input
                     id="occupation"
-                    placeholder="e.g. Undergraduate Student / Software Engineer"
+                    placeholder="e.g. Undergraduate Student / Developer"
                     value={currentOccupation}
                     onChange={(e) => setCurrentOccupation(e.target.value)}
-                    className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label
-                  htmlFor="cvUrl"
-                  className="text-xs font-semibold text-slate-700"
-                >
-                  CV / Resume Link (Google Drive / Portfolio - Optional)
+                <Label htmlFor="cvUrl" className={labelClass}>
+                  CV / Resume Link (Optional)
                 </Label>
                 <Input
                   id="cvUrl"
@@ -548,17 +652,15 @@ export default function DashboardProfilePage() {
                   placeholder="https://drive.google.com/..."
                   value={cvUrl}
                   onChange={(e) => setCvUrl(e.target.value)}
-                  className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                  className={inputClass}
                 />
               </div>
 
-              {/* Multiple + Custom Expert Subjects */}
               <div className="space-y-2.5">
-                <Label className="text-xs font-semibold text-slate-700">
-                  Expert Subjects (Select multiple or add custom)
+                <Label className={labelClass}>
+                  Expert Subjects (Select or add custom)
                 </Label>
 
-                {/* Selected Subjects Pills */}
                 {expertSubjects.length > 0 && (
                   <div className="flex flex-wrap gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-3">
                     {expertSubjects.map((sub) => (
@@ -579,7 +681,6 @@ export default function DashboardProfilePage() {
                   </div>
                 )}
 
-                {/* Preset Quick-Select Buttons */}
                 <div className="flex flex-wrap gap-1.5">
                   {PRESET_SUBJECTS.map((sub) => {
                     const selected = expertSubjects.includes(sub);
@@ -601,7 +702,6 @@ export default function DashboardProfilePage() {
                   })}
                 </div>
 
-                {/* Custom Subject Input */}
                 <div className="flex gap-2 pt-1">
                   <Input
                     type="text"
@@ -614,13 +714,13 @@ export default function DashboardProfilePage() {
                         handleAddCustomSubject();
                       }
                     }}
-                    className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                    className={inputClass}
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleAddCustomSubject}
-                    className="h-10 shrink-0 rounded-xl border-slate-200 px-4 text-xs font-bold"
+                    className="h-11 shrink-0 rounded-xl border-slate-200 px-4 text-xs font-bold"
                   >
                     <Plus className="mr-1 size-4" /> Add
                   </Button>
@@ -629,7 +729,6 @@ export default function DashboardProfilePage() {
             </div>
           )}
 
-          {/* STUDENT EDIT FIELDS */}
           {profile.role === "student" && (
             <div className="space-y-4 border-t border-slate-100 pt-5">
               <h3 className="text-sm font-bold text-slate-900">
@@ -637,10 +736,7 @@ export default function DashboardProfilePage() {
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label
-                    htmlFor="studentClass"
-                    className="text-xs font-semibold text-slate-700"
-                  >
+                  <Label htmlFor="studentClass" className={labelClass}>
                     Current Class / Level
                   </Label>
                   <Input
@@ -648,15 +744,12 @@ export default function DashboardProfilePage() {
                     placeholder="e.g. Class 10 / HSC 1st Year"
                     value={studentClass}
                     onChange={(e) => setStudentClass(e.target.value)}
-                    className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                    className={inputClass}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label
-                    htmlFor="institution"
-                    className="text-xs font-semibold text-slate-700"
-                  >
+                  <Label htmlFor="institution" className={labelClass}>
                     School / College Name
                   </Label>
                   <Input
@@ -664,19 +757,18 @@ export default function DashboardProfilePage() {
                     placeholder="e.g. Notre Dame College"
                     value={institution}
                     onChange={(e) => setInstitution(e.target.value)}
-                    className="h-10 rounded-xl border-slate-200 bg-slate-50/70 text-sm focus-visible:bg-white"
+                    className={inputClass}
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Submit / Cancel */}
           <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
             <Button
               type="submit"
-              disabled={saving}
-              className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white hover:bg-blue-700"
+              disabled={saving || uploadingImage}
+              className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white hover:bg-blue-600"
             >
               {saving ? (
                 <>

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { fetchMyProfileApi } from "@/lib/api/user-api";
-import { fetchTuitions } from "@/lib/api/tuition-api";
+import { createTuitionApi, fetchTuitions } from "@/lib/api/tuition-api";
+import { uploadImageToImgBB } from "@/lib/api/imgbb";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,17 +23,18 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   BookOpen,
   MapPin,
-  DollarSign,
+  Banknote,
   Loader2,
   Sparkles,
   GraduationCap,
   Lock,
   ArrowUpRight,
   Crown,
-  ImageIcon,
+  UploadCloud,
+  X,
+  Link2,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 interface TuitionFormData {
   title: string;
   subject: string;
@@ -42,17 +44,21 @@ interface TuitionFormData {
   budget: string;
   frequency: string;
   description: string;
-  image: string; 
+  image: string;
 }
 
 const inputClass =
-  "h-12 rounded-xl border-slate-200 bg-slate-50/50 px-4 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-blue-500/10 focus-visible:border-blue-500 transition-all";
+  "h-11 rounded-xl border border-slate-200/90 bg-white px-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10";
+const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-600";
 const cardClass =
-  "rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-xs";
+  "rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-7";
 
 export default function CreateTuitionPostPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
   const [postsCount, setPostsCount] = useState(0);
@@ -66,7 +72,7 @@ export default function CreateTuitionPostPage() {
     budget: "",
     frequency: "monthly",
     description: "",
-    image: ""
+    image: "",
   });
 
   useEffect(() => {
@@ -99,11 +105,45 @@ export default function CreateTuitionPostPage() {
     (value: TuitionFormData[K]) =>
       setForm((prev) => ({ ...prev, [key]: value }));
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be under 5MB.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadImageToImgBB(file);
+      set("image")(uploadedUrl);
+      toast.success("Cover image uploaded!");
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : "Failed to upload image.";
+      toast.error(msg);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!form.category) {
-      toast.error("Please select a category.");
+      toast.error("Please select a class/category.");
+      return;
+    }
+
+    if (uploadingImage) {
+      toast.error("Please wait for the image upload to finish.");
       return;
     }
 
@@ -112,52 +152,39 @@ export default function CreateTuitionPostPage() {
     const postData = {
       ...form,
       budget: Number(form.budget),
-      location: form.isOnline ? "Online" : form.location,
+      location: form.isOnline ? "Online" : form.location.trim(),
     };
 
     try {
-      const response = await fetch(`${API_URL}/tuitions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(postData),
-      });
+      const { ok, data } = await createTuitionApi(postData);
 
-      const result = await response.json();
-
-      if (response.ok && result.success !== false) {
-        toast.success("Tuition post published successfully!");
+      if (ok && data?.success !== false) {
+        toast.success("Tuition post submitted for admin approval!");
         router.push("/dashboard/mentor/posts");
         router.refresh();
+      } else if (data?.requiresPricing) {
+        toast.error(
+          data.message || "You have reached your free limit of 2 posts."
+        );
+        router.push("/dashboard/mentor/pricing");
       } else {
-        if (result.requiresPricing) {
-          toast.error(
-            result.message || "You have reached your free limit of 2 posts."
-          );
-          router.push("/dashboard/mentor/pricing");
-        } else {
-          toast.error(result.message || "Failed to create post.");
-        }
+        toast.error(data?.message || "Failed to create post.");
       }
-    } catch (error) {
-      console.error("Network error:", error);
+    } catch {
       toast.error("Server is offline or network error.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   if (checkingPlan) {
     return (
-      <div className="mx-auto flex min-h-[50vh] max-w-[800px] items-center justify-center">
+      <div className="mx-auto flex min-h-[50vh] max-w-[820px] items-center justify-center">
         <Loader2 className="size-7 animate-spin text-blue-600" />
       </div>
     );
   }
 
-  // Proactive Lock if Free Mentor already used 2/2 posts
   if (!isPremium && postsCount >= 2) {
     return (
       <div className="mx-auto max-w-xl py-8">
@@ -174,7 +201,9 @@ export default function CreateTuitionPostPage() {
             Upgrade to Pro for Unlimited Posts
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            You have reached the 2-post limit on the Free plan. Unlock unlimited tuition listings and a verified Pro Mentor badge with a one-time upgrade.
+            You have reached the 2-post limit on the Free plan. Unlock unlimited
+            tuition listings and a verified Pro Mentor badge with a one-time
+            upgrade.
           </p>
 
           <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
@@ -199,24 +228,24 @@ export default function CreateTuitionPostPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[800px] space-y-6">
-      {/* Header */}
+    <div className="mx-auto max-w-[820px] space-y-6 pb-8">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <span className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-blue-600">
             <Sparkles className="size-3.5" /> New Listing
           </span>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-            Post a Tuition Request
+            Post a Tuition Batch
           </h1>
-          <p className="mt-1.5 text-sm text-slate-500">
-            Fill in the details below to attract the best students across our network.
+          <p className="mt-1 text-sm text-slate-500">
+            Provide clear details about your subject, schedule, and fee to attract
+            students.
           </p>
         </div>
 
         {isPremium ? (
           <span className="inline-flex items-center gap-1.5 self-start rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 sm:self-auto">
-            <Crown className="size-3.5" /> Pro Plan • Unlimited Posts
+            <Crown className="size-3.5" /> Pro Plan • Unlimited
           </span>
         ) : (
           <span className="inline-flex items-center self-start rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 tabular-nums sm:self-auto">
@@ -225,18 +254,20 @@ export default function CreateTuitionPostPage() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        {/* 1. Basic Information */}
+      <form onSubmit={handleSubmit} className="space-y-6">
         <section className={cardClass}>
-          <h2 className="mb-5 text-lg font-bold text-slate-900">
-            Basic Information
-          </h2>
-          <div className="flex flex-col gap-5">
-            <div className="space-y-2">
-              <Label
-                htmlFor="title"
-                className="text-sm font-semibold text-slate-800"
-              >
+          <div className="mb-5 border-b border-slate-100 pb-3.5">
+            <h2 className="text-base font-bold text-slate-900">
+              1. Basic Information
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Clear titles and subjects help students find your listing faster.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="title" className={labelClass}>
                 Post Title
               </Label>
               <Input
@@ -244,7 +275,7 @@ export default function CreateTuitionPostPage() {
                 required
                 minLength={5}
                 maxLength={120}
-                placeholder="e.g. Need an experienced Math Tutor for HSC candidate"
+                placeholder="e.g. HSC Higher Math & Physics Intensive Batch"
                 value={form.title}
                 onChange={(e) => set("title")(e.target.value)}
                 className={inputClass}
@@ -252,11 +283,8 @@ export default function CreateTuitionPostPage() {
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="subject"
-                  className="text-sm font-semibold text-slate-800"
-                >
+              <div className="space-y-1.5">
+                <Label htmlFor="subject" className={labelClass}>
                   Subject
                 </Label>
                 <div className="relative">
@@ -272,19 +300,16 @@ export default function CreateTuitionPostPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="category"
-                  className="text-sm font-semibold text-slate-800"
-                >
-                  Category
+              <div className="space-y-1.5">
+                <Label htmlFor="category" className={labelClass}>
+                  Class / Level
                 </Label>
                 <Select
                   value={form.category}
                   onValueChange={(val) => set("category")(val)}
                 >
                   <SelectTrigger id="category" className={`${inputClass} w-full`}>
-                    <SelectValue placeholder="Select class/level" />
+                    <SelectValue placeholder="Select class level" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="primary">Primary (Class 1-5)</SelectItem>
@@ -299,14 +324,19 @@ export default function CreateTuitionPostPage() {
           </div>
         </section>
 
-        {/* 2. Location & Compensation */}
         <section className={cardClass}>
-          <h2 className="mb-5 text-lg font-bold text-slate-900">
-            Location &amp; Compensation
-          </h2>
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4">
-              <div className="flex flex-col gap-0.5">
+          <div className="mb-5 border-b border-slate-100 pb-3.5">
+            <h2 className="text-base font-bold text-slate-900">
+              2. Mode, Location &amp; Fee
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Set whether classes are online or offline along with your tuition fee.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-3.5">
+              <div>
                 <Label
                   htmlFor="isOnline"
                   className="text-sm font-bold text-slate-800"
@@ -314,7 +344,7 @@ export default function CreateTuitionPostPage() {
                   Online Tuition
                 </Label>
                 <p className="text-xs text-slate-500">
-                  Enable this if the tuition can be conducted via Zoom/Google Meet.
+                  Conduct classes remotely via Zoom or Google Meet.
                 </p>
               </div>
               <Switch
@@ -325,11 +355,8 @@ export default function CreateTuitionPostPage() {
             </div>
 
             {!form.isOnline && (
-              <div className="space-y-2">
-                <Label
-                  htmlFor="location"
-                  className="text-sm font-semibold text-slate-800"
-                >
+              <div className="space-y-1.5">
+                <Label htmlFor="location" className={labelClass}>
                   Location
                 </Label>
                 <div className="relative">
@@ -337,7 +364,7 @@ export default function CreateTuitionPostPage() {
                   <Input
                     id="location"
                     required={!form.isOnline}
-                    placeholder="e.g. Mirpur 10, Dhaka"
+                    placeholder="e.g. GEC Circle, Chattogram"
                     value={form.location}
                     onChange={(e) => set("location")(e.target.value)}
                     className={`${inputClass} pl-10`}
@@ -347,15 +374,12 @@ export default function CreateTuitionPostPage() {
             )}
 
             <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="budget"
-                  className="text-sm font-semibold text-slate-800"
-                >
-                  Budget / Salary (৳)
+              <div className="space-y-1.5">
+                <Label htmlFor="budget" className={labelClass}>
+                  Tuition Fee (৳)
                 </Label>
                 <div className="relative">
-                  <DollarSign className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Banknote className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     id="budget"
                     type="number"
@@ -364,17 +388,14 @@ export default function CreateTuitionPostPage() {
                     placeholder="e.g. 5000"
                     value={form.budget}
                     onChange={(e) => set("budget")(e.target.value)}
-                    className={`${inputClass} pl-10`}
+                    className={`${inputClass} pl-10 tabular-nums`}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="frequency"
-                  className="text-sm font-semibold text-slate-800"
-                >
-                  Frequency
+              <div className="space-y-1.5">
+                <Label htmlFor="frequency" className={labelClass}>
+                  Billing Frequency
                 </Label>
                 <Select
                   value={form.frequency}
@@ -394,16 +415,18 @@ export default function CreateTuitionPostPage() {
           </div>
         </section>
 
-        {/* 3. Details & Requirements */}
         <section className={cardClass}>
-          <h2 className="mb-5 text-lg font-bold text-slate-900">
-            Details &amp; Requirements
-          </h2>
-          <div className="space-y-2">
-            <Label
-              htmlFor="description"
-              className="text-sm font-semibold text-slate-800"
-            >
+          <div className="mb-5 border-b border-slate-100 pb-3.5">
+            <h2 className="text-base font-bold text-slate-900">
+              3. Details &amp; Requirements
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Mention days per week, teaching style, and target exam preparation.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="description" className={labelClass}>
               Tuition Description
             </Label>
             <Textarea
@@ -411,65 +434,117 @@ export default function CreateTuitionPostPage() {
               required
               rows={5}
               maxLength={2000}
-              placeholder="Describe the student's current situation, specific requirements, schedule preferences, etc."
+              placeholder="Describe the syllabus coverage, weekly class schedule, exam practice, and expectations..."
               value={form.description}
               onChange={(e) => set("description")(e.target.value)}
-              className="resize-none rounded-xl border-slate-200 bg-slate-50/50 p-4 transition-all focus-visible:border-blue-500 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-blue-500/10"
+              className="resize-none rounded-xl border border-slate-200/90 bg-white p-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10"
             />
           </div>
+        </section>
 
-{/* 4. Cover Image (Optional - ImgBB Link) */}
         <section className={cardClass}>
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Cover Image <span className="text-xs font-medium text-slate-400">(Optional)</span>
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Paste a direct ImgBB image link (e.g. https://i.ibb.co/...). Leave blank to use a default cover.
-              </p>
-            </div>
+          <div className="mb-5 border-b border-slate-100 pb-3.5">
+            <h2 className="text-base font-bold text-slate-900">
+              4. Cover Banner{" "}
+              <span className="text-xs font-medium text-slate-400">
+                (Optional)
+              </span>
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Upload a cover image directly via ImgBB or paste an image link. Leave
+              blank to use our clean default cover.
+            </p>
           </div>
 
           <div className="space-y-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+
+            {form.image ? (
+              <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <div className="aspect-[16/9] w-full max-w-md overflow-hidden bg-slate-100">
+                  <img
+                    src={form.image}
+                    alt="Cover preview"
+                    className="size-full object-cover"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200/80 bg-white px-4 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    {uploadingImage ? "Uploading..." : "Change Image"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("image")("")}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700"
+                  >
+                    <X className="size-3.5" /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 px-6 py-8 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="flex size-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-xs">
+                  {uploadingImage ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <UploadCloud className="size-5" />
+                  )}
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-800">
+                  {uploadingImage
+                    ? "Uploading to ImgBB..."
+                    : "Click to upload cover image"}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  PNG, JPG or WebP (max 5MB)
+                </p>
+              </button>
+            )}
+
             <div className="relative">
-              <ImageIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Link2 className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <Input
                 id="image"
                 type="url"
-                placeholder="https://i.ibb.co/xxxxxxx/cover.jpg"
+                placeholder="Or paste an ImgBB image URL directly (https://i.ibb.co/...)"
                 value={form.image}
                 onChange={(e) => set("image")(e.target.value)}
                 className={`${inputClass} pl-10`}
               />
             </div>
-
-            {form.image.trim() && (
-              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50">
-                <div className="aspect-[16/9] w-full max-w-md overflow-hidden bg-slate-100">
-                  <img
-                    src={form.image.trim()}
-                    alt="Cover preview"
-                    className="size-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </section>
 
-
-        </section>
-
-        {/* Submit Button */}
-        <div>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <Link href="/dashboard/mentor/posts">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-xl border-slate-200 px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            >
+              Cancel
+            </Button>
+          </Link>
           <Button
             type="submit"
-            disabled={loading}
-            className="h-12 w-full rounded-xl bg-slate-900 px-8 text-sm font-semibold text-white transition-all hover:bg-blue-600 disabled:opacity-70 sm:w-auto"
+            disabled={loading || uploadingImage}
+            className="h-11 w-full rounded-xl bg-slate-900 px-7 text-sm font-semibold text-white transition-all hover:bg-blue-600 disabled:opacity-70 sm:w-auto"
           >
             {loading ? (
               <>
