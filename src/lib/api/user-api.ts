@@ -83,10 +83,15 @@ export async function updateMyProfileApi(payload: ProfileUpdatePayload) {
   return { ok: res.ok, data };
 }
 
-export async function fetchMentorsApi(filters: { search?: string; subject?: string } = {}) {
+export async function fetchMentorsApi(
+  filters: { search?: string; subject?: string; sort?: string; limit?: number } = {}
+) {
   const params = new URLSearchParams();
   if (filters.search) params.append("search", filters.search);
-  if (filters.subject && filters.subject !== "all") params.append("subject", filters.subject);
+  if (filters.subject && filters.subject !== "all")
+    params.append("subject", filters.subject);
+  if (filters.sort) params.append("sort", filters.sort);
+  if (filters.limit) params.append("limit", String(filters.limit));
 
   const query = params.toString();
   const res = await fetch(`${API_URL}/mentors${query ? `?${query}` : ""}`, {
