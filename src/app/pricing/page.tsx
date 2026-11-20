@@ -2,117 +2,319 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Navbar from "@/components/shared/Nav";
-import PricingCards from "@/components/pricing/PricingCards";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
 import { fetchMyProfileApi } from "@/lib/api/user-api";
-import { GraduationCap, ArrowRight, HelpCircle } from "lucide-react";
+import { createCheckoutSessionApi } from "@/lib/api/payment-api";
 
-const FAQS = [
-  {
-    q: "Is MentorLagbe free for students?",
-    a: "Yes. Students can browse verified tuitions, explore mentors, and apply to posts completely free with no subscription required.",
-  },
-  {
-    q: "What happens when I hit the 2-post limit as a free mentor?",
-    a: "Your existing posts remain active. To publish more than 2 tuition posts, simply upgrade to the Pro Mentor plan from your dashboard.",
-  },
-  {
-    q: "How fast is the Pro Mentor plan activated?",
-    a: "Immediately. As soon as your Stripe payment completes, your account is automatically verified and unlocked for unlimited posting.",
-  },
-];
+import Footer from "@/components/shared/Footer";
+import {
+  Check,
+  Crown,
+  Sparkles,
+  Loader2,
+  ArrowRight,
+  ShieldCheck,
+  GraduationCap,
+  BookOpen,
+} from "lucide-react";
+import Navbar from "@/components/shared/Nav";
 
-export default function PublicPricingPage() {
+type PlanTab = "student" | "mentor";
+
+export default function PricingPage() {
+  const router = useRouter();
   const { data: session } = useSession();
-  const userRole = (session?.user as { role?: string } | undefined)?.role || null;
+
+  const [activeTab, setActiveTab] = useState<PlanTab>("student");
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
 
   useEffect(() => {
-    if (userRole !== "mentor") return;
-    fetchMyProfileApi()
-      .then((profile) => setIsPremium(Boolean(profile?.isPremium)))
-      .catch(() => {});
-  }, [userRole]);
+    const loadUser = async () => {
+      if (!session?.user) {
+        setUserRole(null);
+        setIsPremium(false);
+        return;
+      }
+
+      try {
+        const profile = await fetchMyProfileApi();
+        const role = profile?.role || "student";
+        setUserRole(role);
+        setIsPremium(Boolean(profile?.isPremium));
+
+        if (role === "mentor" || role === "tutor") {
+          setActiveTab("mentor");
+        } else if (role === "student") {
+          setActiveTab("student");
+        }
+      } catch {
+        setUserRole(null);
+      }
+    };
+
+    loadUser();
+  }, [session]);
+
+  const handleUpgrade = async (targetRole: PlanTab) => {
+    if (!session?.user) {
+      toast.error("Please sign in first to upgrade your plan.");
+      router.push("/sign-in");
+      return;
+    }
+
+    if (userRole === "admin") {
+      toast.error("Admin accounts do not require a Pro subscription.");
+      return;
+    }
+
+    const isUserMentor = userRole === "mentor" || userRole === "tutor";
+    if (targetRole === "mentor" && !isUserMentor) {
+      toast.error("This plan is only for Mentor accounts.");
+      return;
+    }
+    if (targetRole === "student" && userRole !== "student") {
+      toast.error("This plan is only for Student accounts.");
+      return;
+    }
+
+    if (isPremium) {
+      toast.success("You are already on the Pro Plan!");
+      return;
+    }
+
+    setLoadingCheckout(true);
+    try {
+      const planName =
+        targetRole === "mentor" ? "Mentor Pro Plan" : "Student Pro Plan";
+      const price = targetRole === "mentor" ? 500 : 300;
+
+      const { ok, data } = await createCheckoutSessionApi(planName, price, {
+        successPath: "/payment/success",
+        cancelPath: "/payment/cancel",
+      });
+
+      if (ok && data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data?.message || "Failed to start Stripe checkout.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoadingCheckout(false);
+    }
+  };
+
+  const isMentorTab = activeTab === "mentor";
+  const isCurrentRoleMatched =
+    (isMentorTab && (userRole === "mentor" || userRole === "tutor")) ||
+    (!isMentorTab && userRole === "student");
+
+  const freeFeatures = isMentorTab
+    ? [
+        "Create up to 2 tuition listings",
+        "Receive student applications",
+        "Standard mentor profile page",
+        "Manage applicants from dashboard",
+      ]
+    : [
+        "Browse all verified tuition listings",
+        "Apply to available tuitions",
+        "Track application status in real time",
+        "Standard student profile",
+      ];
+
+  const proFeatures = isMentorTab
+    ? [
+        "Unlimited tuition batch & 1-on-1 posts",
+        "Verified Pro Mentor badge on all listings",
+        "Priority ranking in Find Mentors directory",
+        "Downloadable billing & payment receipts",
+      ]
+    : [
+        "Priority booking & highlighted applications",
+        "Verified Pro Student badge on profile",
+        "Faster response visibility to top mentors",
+        "Lifetime one-time upgrade with receipt",
+      ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="flex min-h-screen flex-col bg-slate-50/70">
       <Navbar />
 
-      {/* Header */}
-      <section className="border-b border-slate-200/80 bg-white">
-        <div className="mx-auto max-w-4xl px-4 py-12 text-center sm:px-6 sm:py-16 lg:px-8">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-            Simple &amp; Transparent Pricing
-          </p>
-          <h1 className="mt-2.5 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Start teaching for free, upgrade when you grow
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-500 sm:text-[15px]">
-            Students always use MentorLagbe 100% free. Mentors get 2 free tuition posts and can unlock unlimited listings anytime.
-          </p>
-        </div>
-      </section>
+      <main className="flex-1 px-4 py-14 sm:px-6 lg:py-20">
+        <div className="mx-auto max-w-5xl space-y-10">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600">
+              <Sparkles className="size-3.5" /> Simple Pricing
+            </span>
+            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+              Upgrade Your MentorLagbe Experience
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-slate-500 sm:text-base">
+              Start for free and unlock Pro features anytime with a one-time
+              Stripe payment. No hidden recurring fees.
+            </p>
 
-      <main className="mx-auto max-w-5xl space-y-12 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        {/* Shared Pricing Cards */}
-        <PricingCards
-          mode="public"
-          userRole={userRole}
-          isPremium={isPremium}
-          proPrice="৳500"
-          proBillingLabel="one-time"
-        />
-
-        {/* Student Free Banner */}
-        <section className="mx-auto flex max-w-4xl flex-col items-start justify-between gap-4 rounded-2xl border border-blue-200/80 bg-blue-50/60 p-5 sm:flex-row sm:items-center sm:p-6">
-          <div className="flex items-start gap-3.5">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-              <GraduationCap className="size-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Looking for a tutor as a Student?
-              </h2>
-              <p className="mt-0.5 text-sm text-slate-600">
-                Browse verified mentors and apply to any tuition post completely free.
-              </p>
-            </div>
-          </div>
-
-          <Link
-            href="/tuitions"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600"
-          >
-            Browse Tuitions
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </section>
-
-        {/* Compact FAQ */}
-        <section className="mx-auto max-w-4xl">
-          <div className="mb-5 flex items-center gap-2">
-            <HelpCircle className="size-4 text-blue-600" />
-            <h2 className="text-lg font-extrabold text-slate-900">
-              Frequently Asked Questions
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {FAQS.map((item) => (
-              <div
-                key={item.q}
-                className="rounded-2xl border border-slate-200/80 bg-white p-5"
+            <div className="mt-7 inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab("student")}
+                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+                  !isMentorTab
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
               >
-                <h3 className="text-sm font-bold text-slate-900">{item.q}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                  {item.a}
+                <BookOpen className="size-4" />
+                For Students
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("mentor")}
+                className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+                  isMentorTab
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <GraduationCap className="size-4" />
+                For Mentors
+              </button>
+            </div>
+          </div>
+
+          <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+            <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-7 shadow-xs">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-900">
+                    {isMentorTab ? "Free Mentor" : "Free Student"}
+                  </span>
+                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                    Starter
+                  </span>
+                </div>
+
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="text-4xl font-extrabold tracking-tight text-slate-900">
+                    ৳0
+                  </span>
+                  <span className="text-sm font-medium text-slate-400">
+                    / forever
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {isMentorTab
+                    ? "Ideal for new tutors testing the platform with up to 2 listings."
+                    : "Everything you need to discover and apply for verified tuitions."}
+                </p>
+
+                <ul className="mt-6 space-y-3 border-t border-slate-100 pt-6">
+                  {freeFeatures.map((feature) => (
+                    <li
+                      key={feature}
+                      className="flex items-start gap-2.5 text-sm text-slate-600"
+                    >
+                      <Check className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-8">
+                <Link
+                  href={session?.user ? "/dashboard" : "/sign-up"}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50"
+                >
+                  {session?.user ? "Go to Dashboard" : "Get Started Free"}
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative flex flex-col justify-between rounded-2xl border-2 border-slate-900 bg-white p-7 shadow-md">
+              <span className="absolute -top-3.5 right-6 inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
+                <Crown className="size-3 text-amber-400" /> Most Popular
+              </span>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-900">
+                    {isMentorTab ? "Pro Mentor" : "Pro Student"}
+                  </span>
+                  <span className="rounded-md bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                    One-time
+                  </span>
+                </div>
+
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="text-4xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+                    {isMentorTab ? "৳500" : "৳300"}
+                  </span>
+                  <span className="text-sm font-medium text-slate-400">
+                    / lifetime
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {isMentorTab
+                    ? "Remove the 2-post limit and stand out with a verified Pro badge."
+                    : "Get priority visibility when applying to competitive tuition batches."}
+                </p>
+
+                <ul className="mt-6 space-y-3 border-t border-slate-100 pt-6">
+                  {proFeatures.map((feature) => (
+                    <li
+                      key={feature}
+                      className="flex items-start gap-2.5 text-sm font-medium text-slate-700"
+                    >
+                      <Check className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-8 space-y-2.5">
+                {isPremium && isCurrentRoleMatched ? (
+                  <div className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700">
+                    <ShieldCheck className="size-4" /> Active Pro Plan
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={loadingCheckout}
+                    onClick={() => handleUpgrade(activeTab)}
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingCheckout ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Redirecting to Stripe...
+                      </>
+                    ) : (
+                      <>
+                        Subscribe with Stripe
+                        <ArrowRight className="size-4" />
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <p className="text-center text-[11px] font-medium text-slate-400">
+                  Secured by Stripe Checkout • Instant account activation
                 </p>
               </div>
-            ))}
+            </div>
           </div>
-        </section>
+        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
