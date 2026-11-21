@@ -21,10 +21,16 @@ const db = client.db("MentorLagbe");
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
     "http://localhost:3000",
     process.env.BETTER_AUTH_URL || "",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
   ].filter(Boolean),
+
+  advanced: {
+    useSecureCookies: process.env.NODE_ENV === "production",
+  },
 
   database: mongodbAdapter(db, { client }),
 

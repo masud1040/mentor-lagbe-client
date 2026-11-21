@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
 import { Loader2, GraduationCap, UserCheck } from "lucide-react";
@@ -12,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<"student" | "mentor">("student");
 
@@ -56,11 +54,10 @@ export default function SignUpPage() {
         toast.success(`Account created as ${role}! Welcome to MentorLagbe.`);
 
         if (role === "mentor") {
-          router.push("/dashboard/mentor");
+          window.location.href = "/dashboard/mentor";
         } else {
-          router.push("/dashboard/student");
+          window.location.href = "/dashboard/student";
         }
-        router.refresh();
       }
     } catch (error: unknown) {
       console.error("Signup Catch Error:", error);

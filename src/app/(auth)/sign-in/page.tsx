@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
@@ -12,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -45,14 +43,12 @@ export default function SignInPage() {
           (data.user as { role?: string }).role || "student";
 
         if (userRole === "admin") {
-          router.push("/dashboard/admin");
+          window.location.href = "/dashboard/admin";
         } else if (userRole === "mentor") {
-          router.push("/dashboard/mentor");
+          window.location.href = "/dashboard/mentor";
         } else {
-          router.push("/dashboard/student");
+          window.location.href = "/dashboard/student";
         }
-
-        router.refresh();
       }
     } catch (error: unknown) {
       console.error("Signin Catch Error:", error);
