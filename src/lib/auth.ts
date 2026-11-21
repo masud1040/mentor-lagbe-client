@@ -3,15 +3,30 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
 
-const client = new MongoClient(
-  process.env.MONGODB_URL as string
-);
+const globalForMongo = globalThis as unknown as {
+  mongoClient?: MongoClient;
+};
 
-// ডেটাবেসের নাম
+const client =
+  globalForMongo.mongoClient ??
+  new MongoClient(process.env.MONGODB_URL as string, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForMongo.mongoClient = client;
+}
+
 const db = client.db("MentorLagbe");
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    "http://localhost:3000",
+    process.env.BETTER_AUTH_URL || "",
+  ].filter(Boolean),
 
   database: mongodbAdapter(db, { client }),
 
@@ -30,20 +45,12 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
   },
 
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-  },
-
-  
   user: {
     additionalFields: {
       role: {
         type: "string",
-        required: false, 
-        defaultValue: "student", 
+        required: false,
+        defaultValue: "student",
       },
       isPremium: {
         type: "boolean",
