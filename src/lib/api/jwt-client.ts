@@ -1,4 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const JWT_STORAGE_KEY = "mentorlagbe_jwt";
 
 let pendingTokenRequest: Promise<string | null> | null = null;
@@ -19,7 +18,7 @@ export async function syncJwtToken(): Promise<string | null> {
   if (!pendingTokenRequest) {
     pendingTokenRequest = (async () => {
       try {
-        const res = await fetch(`${API_URL}/jwt`, {
+        const res = await fetch("/api/jwt", {
           method: "POST",
           credentials: "include",
         });
@@ -48,7 +47,7 @@ export async function syncJwtToken(): Promise<string | null> {
 
 export async function authFetch(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
   let token = getStoredJwt();
   if (!token) {
