@@ -7,7 +7,7 @@ export const authClient = createAuthClient({
     typeof window !== "undefined"
       ? window.location.origin
       : process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  plugins: [inferAdditionalFields<typeof auth>()],
+  plugins: [inferAdditionalFields<typeof auth>()], 
 });
 
 export const { signIn, signUp, signOut, useSession } = authClient;

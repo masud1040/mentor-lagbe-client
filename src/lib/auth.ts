@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 
 const globalForMongo = globalThis as unknown as {
   mongoClient?: MongoClient;
@@ -19,28 +20,40 @@ globalForMongo.mongoClient = client;
 
 const db = client.db("MentorLagbe");
 
+const baseURL = (
+  process.env.BETTER_AUTH_URL || "https://mentor-lagbe-self.vercel.app"
+).replace(/\/$/, "");
+
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
     "http://localhost:3000",
-    process.env.BETTER_AUTH_URL || "",
+    "https://mentor-lagbe-self.vercel.app",
+    baseURL,
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
   ].filter(Boolean),
 
   advanced: {
     useSecureCookies: process.env.NODE_ENV === "production",
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      path: "/",
+    },
   },
 
-  database: mongodbAdapter(db, { client }),
+  database: mongodbAdapter(db),
 
   plugins: [
     jwt({
       jwt: {
-        issuer: process.env.BETTER_AUTH_URL,
-        audience: process.env.BETTER_AUTH_URL,
+        issuer: baseURL,
+        audience: baseURL,
       },
     }),
+    nextCookies(),
   ],
 
   emailAndPassword: {
