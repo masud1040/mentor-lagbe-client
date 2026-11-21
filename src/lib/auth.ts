@@ -15,9 +15,7 @@ const client =
     socketTimeoutMS: 45000,
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForMongo.mongoClient = client;
-}
+globalForMongo.mongoClient = client;
 
 const db = client.db("MentorLagbe");
 
