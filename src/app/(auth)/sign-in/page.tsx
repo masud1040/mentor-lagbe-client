@@ -98,6 +98,7 @@ export default function SignInPage() {
                 id="email"
                 type="email"
                 name="email"
+                autoComplete="email"
                 placeholder="you@example.com"
                 required
                 disabled={loading}
@@ -106,24 +107,17 @@ export default function SignInPage() {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  Password
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Password
+              </label>
               <Input
                 id="password"
                 type="password"
                 name="password"
+                autoComplete="current-password"
                 placeholder="Enter your password"
                 required
                 disabled={loading}
