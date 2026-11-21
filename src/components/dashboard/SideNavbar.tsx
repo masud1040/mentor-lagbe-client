@@ -145,7 +145,7 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
       await signOut();
       clearJwtToken();
       toast.success("Logged out successfully!");
-      router.push("/sign-in");
+      window.location.href = "/sign-in";
       router.refresh();
     } catch (error) {
       console.error("Logout error:", error);
