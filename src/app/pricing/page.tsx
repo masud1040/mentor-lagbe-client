@@ -314,7 +314,7 @@ export default function PricingPage() {
         </div>
       </main>
 
-      <Footer />
+
     </div>
   );
 }

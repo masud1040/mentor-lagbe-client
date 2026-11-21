@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/shared/Nav";
+import Pagination from "@/components/shared/Pagination";
 import TuitionCard, { TuitionPost } from "@/components/tuitions/TuitionCard";
 import { fetchTuitions } from "@/lib/api/tuition-api";
 import { Search, SlidersHorizontal, X, AlertCircle } from "lucide-react";
@@ -16,28 +17,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const ITEMS_PER_PAGE = 9;
+
 function TuitionsBrowseContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // URL theke current filter state read kora
   const urlSearch = searchParams.get("search") || "";
   const urlCategory = searchParams.get("category") || "all";
   const urlMode = searchParams.get("mode") || "all";
+  const urlPage = Math.max(1, Number(searchParams.get("page")) || 1);
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [posts, setPosts] = useState<TuitionPost[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // URL query update korar helper
   const updateUrl = useCallback(
-    (next: { search?: string; category?: string; mode?: string }) => {
+    (next: {
+      search?: string;
+      category?: string;
+      mode?: string;
+      page?: number;
+    }) => {
       const params = new URLSearchParams(searchParams.toString());
+
+      const filterChanged =
+        next.search !== undefined ||
+        next.category !== undefined ||
+        next.mode !== undefined;
 
       const s = next.search !== undefined ? next.search : urlSearch;
       const c = next.category !== undefined ? next.category : urlCategory;
       const m = next.mode !== undefined ? next.mode : urlMode;
+      const p = filterChanged
+        ? 1
+        : next.page !== undefined
+          ? next.page
+          : urlPage;
 
       if (s.trim()) params.set("search", s.trim());
       else params.delete("search");
@@ -48,15 +67,17 @@ function TuitionsBrowseContent() {
       if (m && m !== "all") params.set("mode", m);
       else params.delete("mode");
 
+      if (p > 1) params.set("page", String(p));
+      else params.delete("page");
+
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, {
         scroll: false,
       });
     },
-    [pathname, router, searchParams, urlCategory, urlMode, urlSearch]
+    [pathname, router, searchParams, urlCategory, urlMode, urlPage, urlSearch]
   );
 
-  // Search input debounce kore URL-e sync kora
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== urlSearch) {
@@ -66,29 +87,41 @@ function TuitionsBrowseContent() {
     return () => clearTimeout(timer);
   }, [searchInput, urlSearch, updateUrl]);
 
-  // URL change holei backend theke fresh filtered data fetch kora
   useEffect(() => {
     const loadTuitions = async () => {
       setLoading(true);
       try {
-        const data = await fetchTuitions({
+        const res = await fetchTuitions({
           adminStatus: "approved",
           status: "active",
           search: urlSearch || undefined,
           category: urlCategory !== "all" ? urlCategory : undefined,
           isOnline: urlMode !== "all" ? urlMode : undefined,
+          page: urlPage,
+          limit: ITEMS_PER_PAGE,
         });
-        setPosts(Array.isArray(data) ? data : []);
+
+        if (Array.isArray(res)) {
+          setPosts(res);
+          setTotal(res.length);
+          setTotalPages(1);
+        } else {
+          setPosts(Array.isArray(res?.data) ? res.data : []);
+          setTotal(Number(res?.total) || 0);
+          setTotalPages(Math.max(1, Number(res?.totalPages) || 1));
+        }
       } catch (error) {
         console.error("Failed to fetch tuitions:", error);
         setPosts([]);
+        setTotal(0);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
     };
 
     loadTuitions();
-  }, [urlSearch, urlCategory, urlMode]);
+  }, [urlSearch, urlCategory, urlMode, urlPage]);
 
   const hasActiveFilters =
     Boolean(urlSearch) || urlCategory !== "all" || urlMode !== "all";
@@ -98,11 +131,15 @@ function TuitionsBrowseContent() {
     router.replace(pathname, { scroll: false });
   };
 
+  const handlePageChange = (nextPage: number) => {
+    updateUrl({ page: nextPage });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <Navbar />
 
-      {/* Top Header & Filter Bar */}
       <section className="border-b border-slate-200/80 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
           <div className="max-w-2xl">
@@ -113,11 +150,11 @@ function TuitionsBrowseContent() {
               Find the right tuition for you
             </h1>
             <p className="mt-2.5 text-sm leading-relaxed text-slate-500 sm:text-[15px]">
-              Browse admin-verified home and online tuition opportunities posted by mentors across Bangladesh.
+              Browse admin-verified home and online tuition opportunities posted
+              by mentors across Bangladesh.
             </p>
           </div>
 
-          {/* Responsive Filter Controls */}
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-12">
             <div className="relative sm:col-span-6 lg:col-span-6">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -178,14 +215,13 @@ function TuitionsBrowseContent() {
             </div>
           </div>
 
-          {/* Active Filters & Result Count */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-medium text-slate-500">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="size-3.5 text-slate-400" />
               <span>
                 {loading
                   ? "Searching tuitions..."
-                  : `${posts.length} ${posts.length === 1 ? "tuition" : "tuitions"} available`}
+                  : `${total} ${total === 1 ? "tuition" : "tuitions"} available`}
               </span>
             </div>
 
@@ -202,7 +238,6 @@ function TuitionsBrowseContent() {
         </div>
       </section>
 
-      {/* Main Content Grid */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {loading ? (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -243,11 +278,19 @@ function TuitionsBrowseContent() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <TuitionCard key={post._id} post={post} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <TuitionCard key={post._id} post={post} />
+              ))}
+            </div>
+
+            <Pagination
+              currentPage={urlPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </>
         )}
       </main>
     </div>

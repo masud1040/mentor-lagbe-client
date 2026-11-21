@@ -4,7 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
-import { fetchApplicationsApi } from "@/lib/api/application-api";
+import {
+  cancelApplicationApi,
+  fetchApplicationsApi,
+} from "@/lib/api/application-api";
 import {
   CheckSquare,
   CheckCircle2,
@@ -16,6 +19,7 @@ import {
   Loader2,
   AlertCircle,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +39,7 @@ export default function StudentApplicationsPage() {
   const { data: session, isPending } = useSession();
   const [applications, setApplications] = useState<StudentApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<StatusFilter>("all");
 
   useEffect(() => {
@@ -57,6 +62,28 @@ export default function StudentApplicationsPage() {
 
     loadMyApplications();
   }, [session?.user?.id, isPending]);
+
+  const handleCancelApplication = async (id: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this application?"
+    );
+    if (!confirmed) return;
+
+    setCancelingId(id);
+    try {
+      const { ok, data } = await cancelApplicationApi(id);
+      if (ok && data?.success !== false) {
+        setApplications((prev) => prev.filter((item) => item._id !== id));
+        toast.success("Application canceled successfully.");
+      } else {
+        toast.error(data?.message || "Failed to cancel application.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setCancelingId(null);
+    }
+  };
 
   const counts = useMemo(
     () => ({
@@ -82,7 +109,6 @@ export default function StudentApplicationsPage() {
 
   return (
     <div className="mx-auto max-w-[1050px] space-y-6">
-      {/* Header */}
       <div className="flex flex-col justify-between gap-4 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-xs sm:flex-row sm:items-center sm:p-8">
         <div>
           <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-600">
@@ -103,7 +129,6 @@ export default function StudentApplicationsPage() {
         </Link>
       </div>
 
-      {/* Status Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-100 bg-white p-2 shadow-xs">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
@@ -133,7 +158,6 @@ export default function StudentApplicationsPage() {
         })}
       </div>
 
-      {/* Applications List */}
       {loading || isPending ? (
         <div className="flex items-center justify-center rounded-[2rem] border border-slate-100 bg-white py-20">
           <Loader2 className="size-8 animate-spin text-blue-600" />
@@ -158,7 +182,6 @@ export default function StudentApplicationsPage() {
               className="flex flex-col gap-5 rounded-[1.75rem] border border-slate-200/70 bg-white p-6 shadow-xs transition-all hover:border-blue-200 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
             >
               <div className="flex-1 space-y-3">
-                {/* Status Badge */}
                 <div className="flex flex-wrap items-center gap-2">
                   {app.status === "accepted" && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-600">
@@ -177,7 +200,6 @@ export default function StudentApplicationsPage() {
                   )}
                 </div>
 
-                {/* Tuition Title */}
                 <div>
                   <Link
                     href={`/tuitions/${app.tuitionId}`}
@@ -190,7 +212,6 @@ export default function StudentApplicationsPage() {
                   </Link>
                 </div>
 
-                {/* Meta */}
                 <div className="flex flex-wrap items-center gap-4 text-[13.5px] font-semibold text-slate-600">
                   {app.phone && (
                     <span className="flex items-center gap-1.5">
@@ -215,8 +236,7 @@ export default function StudentApplicationsPage() {
                 )}
               </div>
 
-              {/* View Post Button */}
-              <div className="border-t border-slate-100 pt-4 lg:border-t-0 lg:pt-0">
+              <div className="flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-4 lg:border-t-0 lg:pt-0">
                 <Link href={`/tuitions/${app.tuitionId}`}>
                   <Button
                     variant="outline"
@@ -225,6 +245,28 @@ export default function StudentApplicationsPage() {
                     View Tuition <ExternalLink className="ml-1.5 size-4" />
                   </Button>
                 </Link>
+
+                {app.status === "pending" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={cancelingId === app._id}
+                    onClick={() => handleCancelApplication(app._id)}
+                    className="h-10 rounded-xl border-rose-200 bg-rose-50/50 font-bold text-rose-600 hover:bg-rose-100 hover:text-rose-700"
+                  >
+                    {cancelingId === app._id ? (
+                      <>
+                        <Loader2 className="mr-1.5 size-4 animate-spin" />
+                        Canceling...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="mr-1.5 size-4" />
+                        Cancel
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           ))}

@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import { signOut } from "@/lib/auth-client";
+import { clearJwtToken } from "@/lib/api/jwt-client";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +34,7 @@ import {
   Receipt,
   X,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 
 type UserRole = "student" | "mentor" | "admin";
@@ -93,6 +96,7 @@ const NAV_SECTIONS: Record<UserRole, NavSection[]> = {
     {
       title: "Account",
       items: [
+        { label: "Pricing & Plan", href: "/pricing", icon: CreditCard },
         { label: "My Profile", href: "/dashboard/profile", icon: UserCircle },
       ],
     },
@@ -121,6 +125,7 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const [imgFailed, setImgFailed] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const role: UserRole =
     user?.role === "mentor" || user?.role === "admin" || user?.role === "student"
@@ -134,10 +139,20 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
   };
 
   const handleLogout = async () => {
-    setOpenMobile(false);
-    await signOut();
-    router.push("/sign-in");
-    router.refresh();
+    try {
+      setLoggingOut(true);
+      setOpenMobile(false);
+      await signOut();
+      clearJwtToken();
+      toast.success("Logged out successfully!");
+      router.push("/sign-in");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Logout failed. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const isRouteActive = (href: string) => {
@@ -269,7 +284,7 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
                 <p className="truncate text-[13px] font-semibold text-slate-900">
                   {user?.name || "User"}
                 </p>
-                {user?.isPremium && role === "mentor" && (
+                {user?.isPremium && role !== "admin" && (
                   <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">
                     <Sparkles className="size-2.5" /> Pro
                   </span>
@@ -284,11 +299,16 @@ export default function SideNavbar({ user }: { user: DashboardUser }) {
           <button
             type="button"
             onClick={handleLogout}
+            disabled={loggingOut}
             title="Sign out"
             aria-label="Sign out"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
           >
-            <LogOut className="size-4" />
+            {loggingOut ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <LogOut className="size-4" />
+            )}
           </button>
         </div>
       </SidebarFooter>
