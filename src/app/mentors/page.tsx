@@ -148,7 +148,7 @@ function MentorsDirectoryContent() {
             <div className="sm:col-span-4">
               <Select
                 value={urlSubject}
-                onValueChange={(val) => updateUrl({ subject: val })}
+                onValueChange={(val) => updateUrl({ subject: val ?? "all" })}
               >
                 <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 text-sm">
                   <SelectValue placeholder="Filter by Subject" />

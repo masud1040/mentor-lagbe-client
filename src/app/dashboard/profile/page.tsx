@@ -77,7 +77,8 @@ const PRESET_SUBJECTS = [
 
 const inputClass =
   "h-11 rounded-xl border border-slate-200/90 bg-white px-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10";
-const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-600";
+const labelClass =
+  "text-xs font-semibold uppercase tracking-wide text-slate-600";
 
 export default function DashboardProfilePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -115,7 +116,9 @@ export default function DashboardProfilePage() {
     setEducation(data.education || "");
     setCurrentOccupation(data.currentOccupation || "");
     setCvUrl(data.cvUrl || "");
-    setExpertSubjects(Array.isArray(data.expertSubjects) ? data.expertSubjects : []);
+    setExpertSubjects(
+      Array.isArray(data.expertSubjects) ? data.expertSubjects : [],
+    );
     setStudentClass(data.studentClass || "");
     setInstitution(data.institution || "");
     setImgError(false);
@@ -172,7 +175,7 @@ export default function DashboardProfilePage() {
     setExpertSubjects((prev) =>
       prev.includes(subject)
         ? prev.filter((s) => s !== subject)
-        : [...prev, subject]
+        : [...prev, subject],
     );
   };
 
@@ -565,7 +568,10 @@ export default function DashboardProfilePage() {
               <Label htmlFor="gender" className={labelClass}>
                 Gender
               </Label>
-              <Select value={gender} onValueChange={setGender}>
+              <Select
+                value={gender}
+                onValueChange={(val) => setGender(val ?? "")}
+              >
                 <SelectTrigger id="gender" className={`${inputClass} w-full`}>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>

@@ -5,7 +5,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { Toaster } from "react-hot-toast";
 import SideNavbar from "@/components/dashboard/SideNavbar";
-
+export const dynamic = "force-dynamic";
 export default async function DashboardLayout({
   children,
 }: {

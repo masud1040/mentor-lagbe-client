@@ -182,7 +182,7 @@ function TuitionsBrowseContent() {
             <div className="sm:col-span-3 lg:col-span-3">
               <Select
                 value={urlCategory}
-                onValueChange={(val) => updateUrl({ category: val })}
+              onValueChange={(val) => updateUrl({ category: val ?? "all" })}
               >
                 <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 text-sm">
                   <SelectValue placeholder="All Categories" />
@@ -201,7 +201,7 @@ function TuitionsBrowseContent() {
             <div className="sm:col-span-3 lg:col-span-3">
               <Select
                 value={urlMode}
-                onValueChange={(val) => updateUrl({ mode: val })}
+             onValueChange={(val) => updateUrl({ mode: val ?? "all" })}
               >
                 <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-slate-50/70 text-sm">
                   <SelectValue placeholder="All Modes" />

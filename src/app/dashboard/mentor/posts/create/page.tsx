@@ -49,7 +49,8 @@ interface TuitionFormData {
 
 const inputClass =
   "h-11 rounded-xl border border-slate-200/90 bg-white px-3.5 text-sm text-slate-900 shadow-2xs placeholder:text-slate-400 transition-all hover:border-slate-300 focus-visible:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-500/10";
-const labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-600";
+const labelClass =
+  "text-xs font-semibold uppercase tracking-wide text-slate-600";
 const cardClass =
   "rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-7";
 
@@ -164,7 +165,7 @@ export default function CreateTuitionPostPage() {
         router.refresh();
       } else if (data?.requiresPricing) {
         toast.error(
-          data.message || "You have reached your free limit of 2 posts."
+          data.message || "You have reached your free limit of 2 posts.",
         );
         router.push("/dashboard/mentor/pricing");
       } else {
@@ -238,8 +239,8 @@ export default function CreateTuitionPostPage() {
             Post a Tuition Batch
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Provide clear details about your subject, schedule, and fee to attract
-            students.
+            Provide clear details about your subject, schedule, and fee to
+            attract students.
           </p>
         </div>
 
@@ -306,9 +307,12 @@ export default function CreateTuitionPostPage() {
                 </Label>
                 <Select
                   value={form.category}
-                  onValueChange={(val) => set("category")(val)}
+                  onValueChange={(val) => set("category")(val ?? "")}
                 >
-                  <SelectTrigger id="category" className={`${inputClass} w-full`}>
+                  <SelectTrigger
+                    id="category"
+                    className={`${inputClass} w-full`}
+                  >
                     <SelectValue placeholder="Select class level" />
                   </SelectTrigger>
                   <SelectContent>
@@ -316,7 +320,9 @@ export default function CreateTuitionPostPage() {
                     <SelectItem value="jsc">JSC (Class 6-8)</SelectItem>
                     <SelectItem value="ssc">SSC (Class 9-10)</SelectItem>
                     <SelectItem value="hsc">HSC (Class 11-12)</SelectItem>
-                    <SelectItem value="admission">University Admission</SelectItem>
+                    <SelectItem value="admission">
+                      University Admission
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -330,7 +336,8 @@ export default function CreateTuitionPostPage() {
               2. Mode, Location &amp; Fee
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Set whether classes are online or offline along with your tuition fee.
+              Set whether classes are online or offline along with your tuition
+              fee.
             </p>
           </div>
 
@@ -399,9 +406,12 @@ export default function CreateTuitionPostPage() {
                 </Label>
                 <Select
                   value={form.frequency}
-                  onValueChange={(val) => set("frequency")(val)}
+                  onValueChange={(val) => set("frequency")(val ?? "monthly")}
                 >
-                  <SelectTrigger id="frequency" className={`${inputClass} w-full`}>
+                  <SelectTrigger
+                    id="frequency"
+                    className={`${inputClass} w-full`}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -421,7 +431,8 @@ export default function CreateTuitionPostPage() {
               3. Details &amp; Requirements
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Mention days per week, teaching style, and target exam preparation.
+              Mention days per week, teaching style, and target exam
+              preparation.
             </p>
           </div>
 
@@ -451,8 +462,8 @@ export default function CreateTuitionPostPage() {
               </span>
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Upload a cover image directly via ImgBB or paste an image link. Leave
-              blank to use our clean default cover.
+              Upload a cover image directly via ImgBB or paste an image link.
+              Leave blank to use our clean default cover.
             </p>
           </div>
 

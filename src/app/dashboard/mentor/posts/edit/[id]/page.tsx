@@ -253,7 +253,7 @@ export default function EditTuitionPostPage() {
                 </Label>
                 <Select
                   value={form.category}
-                  onValueChange={(val) => set("category")(val)}
+                  onValueChange={(val) => set("category")(val ?? "")}
                 >
                   <SelectTrigger id="category" className={`${inputClass} w-full`}>
                     <SelectValue placeholder="Select class/level" />
@@ -279,7 +279,7 @@ export default function EditTuitionPostPage() {
               </Label>
               <Select
                 value={form.status}
-                onValueChange={(val) => set("status")(val)}
+                onValueChange={(val) => set("status")(val ?? "active")}
               >
                 <SelectTrigger id="status" className={`${inputClass} w-full sm:w-64`}>
                   <SelectValue />
@@ -372,7 +372,7 @@ export default function EditTuitionPostPage() {
                 </Label>
                 <Select
                   value={form.frequency}
-                  onValueChange={(val) => set("frequency")(val)}
+                  onValueChange={(val) => set("frequency")(val ?? "monthly")}
                 >
                   <SelectTrigger id="frequency" className={`${inputClass} w-full`}>
                     <SelectValue />
