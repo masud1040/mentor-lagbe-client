@@ -8,38 +8,25 @@ if (!uri) {
 
 const globalForMongo = globalThis as typeof globalThis & {
   mongoClient?: MongoClient;
+  mongoClientPromise?: Promise<MongoClient>;
 };
 
-function createClient() {
-  const client = new MongoClient(uri!, {
+const client =
+  globalForMongo.mongoClient ??
+  new MongoClient(uri, {
     maxPoolSize: 10,
     minPoolSize: 0,
     maxIdleTimeMS: 10000,
     serverSelectionTimeoutMS: 10000,
   });
 
-  // If Vercel or Atlas ever closes the topology, evict the dead client from cache
-  client.on("topologyClosed", () => {
-    console.error(
-      "[mongo] topology closed",
-      new Date().toISOString(),
-      new Error().stack,
-    );
-    if (globalForMongo.mongoClient === client) {
-      globalForMongo.mongoClient = undefined;
-    }
-  });
-
-  client.on("serverHeartbeatFailed", (e :any) => {
-  console.error("[mongo] heartbeat failed", e.address, e.failure?.message);
-});
-
-  attachDatabasePool(client);
-  return client;
-}
-
-const client = globalForMongo.mongoClient ?? createClient();
+attachDatabasePool(client);
 globalForMongo.mongoClient = client;
 
+if (!globalForMongo.mongoClientPromise) {
+  globalForMongo.mongoClientPromise = client.connect();
+}
+
 export const mongoClient = client;
+export const clientPromise = globalForMongo.mongoClientPromise;
 export const db = client.db("MentorLagbe");

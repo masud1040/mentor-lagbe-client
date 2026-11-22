@@ -16,7 +16,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isPending && !session?.user) {
-      window.location.href = "/sign-in";
+      window.location.href = "/sign-in?from=dashboard-layout";
     }
   }, [isPending, session]);
 

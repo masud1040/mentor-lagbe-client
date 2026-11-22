@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import jwt from "jsonwebtoken";
 import { auth } from "@/lib/auth";
+import { clientPromise } from "@/lib/mongoDb";
+
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "mentorlagbe_fallback_jwt_secret_change_in_env";
 
 export async function POST() {
   try {
+    // Ensure the MongoClient connection pool is connected before Better Auth queries it
+    await clientPromise;
+
     const session = await auth.api.getSession({
       headers: await headers(),
     });
