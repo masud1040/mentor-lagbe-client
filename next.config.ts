@@ -17,10 +17,18 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/backend/:path*",
+        destination: "https://mentor-lageb-server.vercel.app/:path*",
+      },
+    ];
   },
 };
 
