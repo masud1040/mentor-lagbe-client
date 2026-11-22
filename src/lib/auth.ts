@@ -11,9 +11,11 @@ const globalForMongo = globalThis as unknown as {
 const client =
   globalForMongo.mongoClient ??
   new MongoClient(process.env.MONGODB_URL as string, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
+    maxPoolSize: 5,
+    minPoolSize: 0,
+    maxIdleTimeMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 30000,
   });
 
 globalForMongo.mongoClient = client;
