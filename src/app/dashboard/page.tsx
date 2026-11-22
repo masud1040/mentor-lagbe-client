@@ -1,32 +1,35 @@
-import { auth } from "@/lib/auth";
-// import { clientPromise } from "@/lib/mongoDb";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-export const dynamic = "force-dynamic";
-export default async function DashboardMainPage() {
-  let session = null;
-// await clientPromise
-  try {
-    session = await auth.api.getSession({
-      headers: await headers(),
-    });
-  } catch (error) {
-    console.error("Dashboard Session Error:", error);
-  }
+"use client";
 
-  // সেশন না থাকলে রিডাইরেক্ট করার আগে একটু চেক করা ভালো
-  if (!session || !session.user) {
-    redirect("/sign-in?from=dashboard-home");
-  }
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
 
-  const role = (session.user as { role?: string })?.role || "student";
+export default function DashboardMainPage() {
+  const router = useRouter();
+  const { data: session, isPending } = useSession();
 
-  // সরাসরি নির্দিষ্ট রোলের ড্যাশবোর্ড পেজে পাঠিয়ে দেওয়া
-  if (role === "admin") {
-    redirect("/dashboard/admin");
-  } else if (role === "mentor") {
-    redirect("/dashboard/mentor");
-  } else {
-    redirect("/dashboard/student");
-  }
+  useEffect(() => {
+    if (isPending) return;
+
+    if (!session?.user) {
+      router.replace("/sign-in?from=dashboard-home");
+      return;
+    }
+
+    const role = (session.user as { role?: string })?.role || "student";
+
+    if (role === "admin") {
+      router.replace("/dashboard/admin");
+    } else if (role === "mentor") {
+      router.replace("/dashboard/mentor");
+    } else {
+      router.replace("/dashboard/student");
+    }
+  }, [session, isPending, router]);
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
 }
