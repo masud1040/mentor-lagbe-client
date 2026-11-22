@@ -21,7 +21,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL =
+  typeof window !== "undefined"
+    ? "/backend"
+    : process.env.NEXT_PUBLIC_API_URL || "https://mentor-lageb-server.vercel.app";
 
 interface Post {
   _id: string;

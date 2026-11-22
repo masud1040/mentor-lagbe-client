@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL =
+  typeof window !== "undefined"
+    ? "/backend"
+    : process.env.NEXT_PUBLIC_API_URL || "https://mentor-lageb-server.vercel.app";
 
 // Server Action to revalidate paths after client-side fetch operation
 export async function createTuitionPost(data: any) {

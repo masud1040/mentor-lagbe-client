@@ -1,6 +1,9 @@
 import { authFetch } from "./jwt-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL =
+  typeof window !== "undefined"
+    ? "/backend"
+    : process.env.NEXT_PUBLIC_API_URL || "https://mentor-lageb-server.vercel.app";
 
 export interface TuitionFilters {
   category?: string;
