@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 import { attachDatabasePool } from "@vercel/functions";
 
-const uri = process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URL;
 if (!uri) throw new Error("MONGODB_URI is not configured");
 
 const globalForMongo = globalThis as typeof globalThis & {
