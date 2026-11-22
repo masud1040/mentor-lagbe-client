@@ -1,32 +1,20 @@
 import { betterAuth } from "better-auth";
-import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
+import { db, mongoClient } from "./mongoDb";
 
-const globalForMongo = globalThis as unknown as {
-  mongoClient?: MongoClient;
-};
-
-const client =
-  globalForMongo.mongoClient ??
-  new MongoClient(process.env.MONGODB_URL as string, {
-    maxPoolSize: 5,
-    minPoolSize: 0,
-    maxIdleTimeMS: 10000,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 30000,
-  });
-
-globalForMongo.mongoClient = client;
-
-const db = client.db("MentorLagbe");
 
 const baseURL = (
   process.env.BETTER_AUTH_URL || "https://mentor-lagbe-self.vercel.app"
 ).replace(/\/$/, "");
 
 export const auth = betterAuth({
+  
+    database: mongodbAdapter(db,{
+    client: mongoClient
+
+  }),
   baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
@@ -46,7 +34,7 @@ export const auth = betterAuth({
     },
   },
 
-  database: mongodbAdapter(db),
+
 
   plugins: [
     jwt({
